@@ -19,8 +19,6 @@ async def on_ready():
 
 async def cocev():
 
-
-
     @client.event
     @coc.ClanEvents.member_role(tags=["#229Y8VYP2"])
     async def on_role_updates(old_player, new_player):
