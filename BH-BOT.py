@@ -1,9 +1,9 @@
-
+import os
 import coc
 import asyncio
 import discord
 from discord.ext import commands
-client  = coc.login('gsumit178@gmail.com', 'GUPTA10@cocAPI', client=coc.EventsClient)
+client  = coc.login( os.environ['email'], os.environ['pass'], client=coc.EventsClient)
 
 bot = commands.Bot(command_prefix = '>', intents = discord.Intents.all())
 
@@ -98,4 +98,4 @@ async def ping(ctx):
 
 
 bot.loop.create_task(cocev())
-bot.run('NzY0NzgxMjU2MzU3MzE0NTcw.X4LQDA.7WsCBXDkRsO2x5ERu2umCxeFcbs')
+bot.run(os.environ['Discord_Token'])
