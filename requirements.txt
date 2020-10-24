@@ -1,0 +1,3 @@
+discord.py
+coc.py
+asyncio
