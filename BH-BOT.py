@@ -3,9 +3,22 @@ import coc
 import asyncio
 import discord
 from discord.ext import commands
-client  = coc.login( os.environ['email'], os.environ['pass'], client=coc.EventsClient)
+from github import Github
 
+client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
 bot = commands.Bot(command_prefix = '>', intents = discord.Intents.all())
+
+g = Github(os.environ['gmail'], os.environ['GH_pass'])
+repo = g.get_user().get_repo('DiscordBot')
+
+def readlines(file = 'Data.bh'):
+    cnts = repo.get_contents(file)
+    read = cnts.decoded_content.decode()
+    return read.split('\n')[:-1]
+
+def edit(file = 'Data.bh', data = ''):
+    cnts = repo.get_contents(file)
+    repo.update_file(cnts.path, 'commit', f'{cnts.decoded_content.decode()}{data}', cnts.sha)
 
 
 ''' EVENTS '''
@@ -22,13 +35,11 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_role(tags=["#229Y8VYP2"])
     async def on_role_updates(old_player, new_player):
-        file = open('Data.bh', 'r')
         timap = {}
-        for i in file.readlines():
+        for i in readlines():
             uid, ptg = i.split()
             guild = bot.get_guild(764594921931276338)
             timap[ptg] = guild.get_member(int(uid))
-        file.close()
         
         if str(new_player.tag) in timap:
             if str(old_player.role) == 'Co-Leader':
@@ -50,13 +61,11 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_join(tags=["#229Y8VYP2"])
     async def foo(player, clan):
-        file = open('Data.bh', 'r')
         timap = {}
-        for i in file.readlines():
+        for i in readlines():
             uid, ptg = i.split()
             guild = bot.get_guild(764594921931276338)
             timap[ptg] = guild.get_member(int(uid))
-        file.close()
         if str(player.tag) in timap:
             r1 = discord.utils.get(timap[player.tag].guild.roles, name = '[Member]')
             r2 = discord.utils.get(timap[player.tag].guild.roles, name = '[WaitingList]')
@@ -78,9 +87,7 @@ async def select(ctx, member: discord.Member, player_tag):
     player = await client.get_player(player_tag)
     th = player.town_hall
     await member.edit(nick = f'[TH{th}] {player.name}')
-    file = open('Data.bh', 'a+')
-    file.write(f'{member.id} {player_tag}\n')
-    file.close()
+    edit(data = f'{member.id} {player_tag}\n')
     await bot.get_channel(765497400398708737).send('Successfully Selected.')
        
     
@@ -96,4 +103,4 @@ async def ping(ctx):
 
 
 bot.loop.create_task(cocev())
-bot.run(os.environ['Discord_Token'])
+bot.run(os.environ['BH-BOT_Token'])
