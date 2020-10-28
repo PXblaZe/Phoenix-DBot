@@ -2,13 +2,13 @@ import os
 import coc
 import asyncio
 import discord
-from discord.ext import commands
 from github import Github
+from discord.ext import commands
 
 client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
 bot = commands.Bot(command_prefix = '>', intents = discord.Intents.all())
 
-g = Github(os.environ['gmail'], os.environ['GH_pass'])
+g = Github(os.environ['git_token-BH'])
 repo = g.get_user().get_repo('DiscordBot')
 
 def readlines(file = 'Data.bh'):
@@ -38,7 +38,7 @@ async def cocev():
         timap = {}
         for i in readlines():
             uid, ptg = i.split()
-            guild = bot.get_guild(764594921931276338)
+            guild = bot.get_guild(int(os.environ['BH-serv_id']))
             timap[ptg] = guild.get_member(int(uid))
         
         if str(new_player.tag) in timap:
@@ -55,16 +55,14 @@ async def cocev():
                 await timap[new_player.tag].edit(nick = f'[{new_player.role}] {new_player.name}')
             await timap[new_player.tag].add_roles(r1)
             await timap[new_player.tag].remove_roles(r2)
-        
-
-
+    
     @client.event
     @coc.ClanEvents.member_join(tags=["#229Y8VYP2"])
     async def foo(player, clan):
         timap = {}
         for i in readlines():
             uid, ptg = i.split()
-            guild = bot.get_guild(764594921931276338)
+            guild = bot.get_guild(int(os.environ['BH-serv_id']))
             timap[ptg] = guild.get_member(int(uid))
         if str(player.tag) in timap:
             r1 = discord.utils.get(timap[player.tag].guild.roles, name = '[Member]')
@@ -72,8 +70,6 @@ async def cocev():
             await timap[player.tag].add_roles(r1)
             await timap[player.tag].remove_roles(r2)
             await timap[player.tag].edit(nick = f'[Member] {player.name}')
-
-
 
 ''' COMMANDS '''
 
@@ -88,14 +84,48 @@ async def select(ctx, member: discord.Member, player_tag):
     th = player.town_hall
     await member.edit(nick = f'[TH{th}] {player.name}')
     edit(data = f'{member.id} {player_tag}\n')
-    await bot.get_channel(765497400398708737).send('Successfully Selected.')
-       
+    await ctx.send('Successfully Selected.')
     
 @commands.has_any_role('[Admin]', '[Leader]', '[Co]')
 @bot.command(aliases = ['clean', 'erase'])
 async def clear(ctx, lines = 1):
     if lines > 0:
         await ctx.channel.purge(limit = lines+1)
+
+@bot.command()
+async def clan(ctx, tag):
+    cln = await client.get_clan(tag)
+    val = ''
+    for cm in cln.members:
+        if str(cm.role) == 'Leader':
+            timap = {}
+            for i in readlines():
+                uid, ptg = i.split()
+                guild = bot.get_guild(int(os.environ['BH-serv_id']))
+                timap[ptg] = guild.get_member(int(uid))
+            if cm.tag in timap:
+                val = f'{timap[cm.tag].mention} (`{cm.name}`)'
+            else:
+                val = f'`{cm.name}`'
+            break
+    det = f':link:**Tag :** `{cln.tag}`\n\n:crossed_swords:**League :** `{cln.war_league}`\n\n:crown:**Leader :** {val}\n\n:arrow_forward:**Link :** [Open Game]({cln.share_link} "{cln.name}")'
+    if str(cln.tag) == '#229Y8VYP2': 
+        nm = '💔 BROKEN HEARTS\** 💔'
+        bdg = "https://cdn.discordapp.com/icons/764594921931276338/e901edd95e3e9e69d433ca02f70e8759.png?size=128"
+    else: 
+        nm = cln.name
+        bdg = cln.badge.url
+    if ' ' in str(cln.name):
+        coscn = '-'.join(str(cln.name).split())
+    else: coscn = nm
+    embed = discord.Embed(
+        title = nm,
+        description = det,
+        color = discord.Color.dark_red(),
+        url = f'https://www.clashofstats.com/clans/{coscn}-{str(cln.tag)[1:].upper()}/summary'
+    )
+    embed.set_thumbnail(url = bdg)
+    await ctx.send(embed = embed)
 
 @bot.command()
 async def ping(ctx):
