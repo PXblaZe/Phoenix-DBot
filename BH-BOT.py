@@ -12,11 +12,6 @@ bot = commands.Bot(command_prefix = '-', intents = discord.Intents.all())
 g = Github(os.environ['git_token-BH'])
 repo = g.get_user().get_repo('DiscordBot')
 
-def readlines(file = 'Data.bh'):
-    cnts = repo.get_contents(file)
-    read = cnts.decoded_content.decode()
-    return read.split('\n')[:-1]
-
 def edit(file = 'Data.bh', data = ''):
     cnts = repo.get_contents(file)
     repo.update_file(cnts.path, 'commit', f'{cnts.decoded_content.decode()}{data}', cnts.sha)
