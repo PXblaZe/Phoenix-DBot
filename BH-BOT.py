@@ -117,9 +117,9 @@ async def clear(ctx, lines = 1):
 @clear.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.BadArgument):
-        await ctx.send('Usage: ` {bot.command_prefix}clear [no. of lines] `\nError: Invalid Argument! Use a no. not a text.')
+        await ctx.send(f'Usage: ` {bot.command_prefix}clear [no. of lines] `\nError: Invalid Argument! Use a no. not a text.')
     elif isinstance(error, Exception):
-        await ctx.send(error)
+        await ctx.send(f'Error: {error}')
 
 
 @bot.command()
@@ -160,7 +160,6 @@ async def foo(ctx, error):
         await ctx.send('Invalid Clan Tag')
     elif isinstance(error, Exception):
         await ctx.send(f'Error: {error}')
-
 
 @bot.command()
 async def ping(ctx):
