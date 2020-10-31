@@ -12,9 +12,11 @@ bot = commands.Bot(command_prefix = '-', intents = discord.Intents.all())
 g = Github(os.environ['git_token-BH'])
 repo = g.get_user().get_repo('DiscordBot')
 
-def edit(file = 'Data.bh', data = ''):
+def append(file = 'Data.bh', data = '', index = -1):
     cnts = repo.get_contents(file)
-    repo.update_file(cnts.path, 'commit', f'{cnts.decoded_content.decode()}{data}', cnts.sha)
+    lines = cnts.decoded_content.decode().split('\n')
+    lines.insert(index, data)
+    repo.update_file(cnts.path, f'appended new member data at index {index}', '\n'.join(lines), cnts.sha)
 
 def link(server_id = os.environ['BH-serv_id'], file = 'Data.bh', t2m = True):
     mapin = dict()
@@ -24,8 +26,7 @@ def link(server_id = os.environ['BH-serv_id'], file = 'Data.bh', t2m = True):
     guild = bot.get_guild(server_id)
     for i in read.split('\n')[:-1]:
         uid, tg = i.split()
-        if t2m:
-            mapin[tg] = guild.get_member(int(uid))
+        if t2m: mapin[tg] = guild.get_member(int(uid))
         else: mapin[int(uid)] = tg
     return mapin
 
@@ -95,19 +96,19 @@ async def select(ctx, discord_member: discord.Member, player_tag):
     player = await client.get_player(player_tag)
     th = player.town_hall
     await discord_member.edit(nick = f'[TH{th}] {player.name}')
-    edit(data = f'{discord_member.id} {player_tag}\n')
+    append(data = f'{discord_member.id} {player_tag}')
     await discord_member.add_roles(role)
     await discord_member.remove_roles(r2)
-    await ctx.send('Successfully Selected.')
+    await ctx.send('**Successfully Selected.**')
 
 @select.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'Usage: ` {bot.command_prefix}clan Discord_Menber #Player_Tag `\nError: {error}')
+        await ctx.send(f'**Usage:** ` {bot.command_prefix}clan Discord_Member #Player_Tag `\n**Error:** {error}')
     elif isinstance(error, commands.errors.CommandInvokeError):
-        await ctx.send('Invalid Player Tag')
+        await ctx.send('**Error:** Invalid Player Tag')
     elif isinstance(error, Exception):
-        await ctx.send(f'Error: {error}')
+        await ctx.send(f'**Error:** {error}')
 
 @commands.has_any_role('[Admin]', '[Leader]', '[Co]')
 @bot.command(aliases = ['clean', 'erase'])
@@ -117,9 +118,9 @@ async def clear(ctx, lines = 1):
 @clear.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.BadArgument):
-        await ctx.send(f'Usage: ` {bot.command_prefix}clear [no. of lines] `\nError: Invalid Argument! Use a no. not a text.')
+        await ctx.send(f'**Usage:** ` {bot.command_prefix}clear [no. of lines] `\n**Error:** Invalid Argument! Use a no. not a text.')
     elif isinstance(error, Exception):
-        await ctx.send(f'Error: {error}')
+        await ctx.send(f'**Error:** {error}')
 
 
 @bot.command()
@@ -155,11 +156,35 @@ async def clan(ctx, clan_tag):
 @clan.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'Usage: ` {bot.command_prefix}clan #clan_tag `\nError: {error}')
+        await ctx.send(f'**Usage:** `{bot.command_prefix}clan #clan_tag`')
     elif isinstance(error, commands.errors.CommandInvokeError):
-        await ctx.send('Invalid Clan Tag')
+        await ctx.send('**Error:** Invalid Clan Tag')
     elif isinstance(error, Exception):
-        await ctx.send(f'Error: {error}')
+        await ctx.send(f'**Error:** {error}')
+
+
+@commands.has_any_role('[Admin]', '[Leader]', '[Co]')
+@bot.command(aliases = ['remove'])
+async def kick(ctx, member : discord.Member, reason = ''):
+    guild = bot.get_guild(os.environ['BH-serv_id'])
+    if member.id in link(t2m=False):
+        ct = repo.get_contents('Data.bh')
+        lines = ct.decoded_content.decode().split('\n')
+        for target in lines:
+            if target.startswith(str(member.id)): 
+                lines.remove(target)
+                repo.update_file(ct.path,f'kicked a member with id {member.id}', '\n'.join(lines), ct.sha)
+                break
+    await member.kick(reason=reason)
+    reason = (lambda reason: 'no reason was given.' if (reason == '') else reason)(reason)
+    await ctx.send(f'Successfully kicked {member.mention}\n**Reason:** {reason}\n`kicked by {ctx.author}`')
+@kick.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.send(f'**Usage:** `{bot.command_prefix}kick Discord_Member reason`')
+    if isinstance(error, Exception):
+        await ctx.send(f'**Error:** {error}')
+    
 
 @bot.command()
 async def ping(ctx):
@@ -168,3 +193,4 @@ async def ping(ctx):
 
 bot.loop.create_task(cocev())
 bot.run(os.environ['BH-BOT_Token'])
+
