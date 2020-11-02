@@ -1,5 +1,3 @@
-#modify select command
-
 import os
 import coc
 import asyncio
