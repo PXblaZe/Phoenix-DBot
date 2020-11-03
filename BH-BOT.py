@@ -226,7 +226,7 @@ async def kick(ctx, member : discord.Member, reason = ''):
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
         await ctx.send(f'**Usage:** `{bot.command_prefix}kick Discord_Member reason`')
-    if isinstance(error, Exception):
+    elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 
 @commands.has_any_role('[Admin]', '[Leader]', '[Co]', '[Elder]')    
@@ -244,7 +244,13 @@ async def accept(ctx, member: discord.Member):
             break
     else:
         await ctx.send(f'**Error:** member {member.mention} is not in [WaitingList]')
-
+@accept.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.send(f'**Usage:** `{bot.command_prefix}accept <member of waiting list>`\n**Error:** {error}')
+    elif isinstance(error, Exception):
+        await ctx.send(f'**Error:** {error}')
+    
 
 @bot.command()
 async def ping(ctx):
