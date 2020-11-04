@@ -8,6 +8,7 @@ from discord.ext import commands
 
 client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
 bot = commands.Bot(command_prefix = '-', intents = discord.Intents.all())
+bot.loop.run_until_complete(client.get_clan('#229Y8VYP2'))
 
 g = Github(os.environ['git_token-BH'])
 repo = g.get_user().get_repo('DiscordBot')
