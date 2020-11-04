@@ -1,4 +1,4 @@
 discord.py
-install -U git+https://github.com/mathsman5133/coc.py
+git+https://github.com/mathsman5133/coc.py
 asyncio
 PyGithub
