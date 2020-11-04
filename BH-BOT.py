@@ -8,7 +8,6 @@ from discord.ext import commands
 
 client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
 bot = commands.Bot(command_prefix = '-', intents = discord.Intents.all())
-#bot.loop.run_until_complete(client.get_clan('#229Y8VYP2'))
 
 g = Github(os.environ['git_token-BH'])
 repo = g.get_user().get_repo('DiscordBot')
@@ -42,19 +41,18 @@ async def on_ready():
 
 @bot.event
 async def on_member_join(new : discord.Member):
-
     wlcmsg = f'''Hey {new.mention}, Welcome to  :broken_heart: Broken Hearts\** :broken_heart: !
     **
-    We only accept <:th10:769275244262588437>TH10, <:th11:769275245152043048>TH11, <:th12:769291986221924412>TH12 and <:th13:769292071692795966>TH13 !
+We only accept <:th10:769275244262588437>TH10, <:th11:769275245152043048>TH11, <:th12:769291986221924412>TH12 and <:th13:769292071692795966>TH13 !
 
-    If you are interested to join our clan do the following:
+If you are interested to join our clan do the following:
 
-      1.** Send a screenshot of your in game profile, with your player tag visible.
-    **2.** Send your player tag in text form. 
-    **3.** Send a screenshot of your base. It must be in a war base slot.
-    **4.** Wait for an answer from one of the staff.
+  1.** Send a screenshot of your in game profile, with your player tag visible.
+**2.** Send your player tag in text form. 
+**3.** Send a screenshot of your base. It must be in a war base slot.
+**4.** Wait for an answer from one of the staff.
 
-   *If you need any help ask it in {new.guild.get_channel(765501711694954518).mention} channel.* :slight_smile:'''
+*If you need any help ask it in {new.guild.get_channel(765501711694954518).mention} channel.* :slight_smile:'''
     role = discord.utils.get(new.guild.roles, name = '[new]')
     await new.add_roles(role)
     await new.guild.get_channel(765497400398708737).send(wlcmsg)
@@ -70,13 +68,13 @@ async def cocev():
         timap = links()
         if str(new_player.tag) in timap:
             if str(old_player.role) == 'Co-Leader':
-                r2 = discord.utils.get(timap[new_player.tag].guild.roles, name = f'[{old_player.role[:2]}]')
+                r2 = discord.utils.get(timap[new_player.tag].guild.roles, name = f'[{str(old_player.role)[:2]}]')
             else:
                 r2 = discord.utils.get(timap[new_player.tag].guild.roles, name = f'[{old_player.role}]')
             
             if str(new_player.role) == 'Co-Leader':
-                r1 = discord.utils.get(timap[new_player.tag].guild.roles, name = f'[{new_player.role[:2]}]')
-                await timap[new_player.tag].edit(nick = f'[{new_player.role[:2]}] {new_player.name}')
+                r1 = discord.utils.get(timap[new_player.tag].guild.roles, name = f'[{str(new_player.role)[:2]}]')
+                await timap[new_player.tag].edit(nick = f'[{str(new_player.role)[:2]}] {new_player.name}')
             else:
                 r1 = discord.utils.get(timap[new_player.tag].guild.roles, name = f'[{new_player.role}]')
                 await timap[new_player.tag].edit(nick = f'[{new_player.role}] {new_player.name}')
@@ -87,13 +85,30 @@ async def cocev():
     @coc.ClanEvents.member_join(tags=["#229Y8VYP2"])
     async def foo(player, clan):
         timap = links()
-        if str(player.tag) in timap:
-            r1 = discord.utils.get(timap[player.tag].guild.roles, name = '[Member]')
-            r2 = discord.utils.get(timap[player.tag].guild.roles, name = '[WaitingList]')
-            await timap[player.tag].add_roles(r1)
-            await timap[player.tag].remove_roles(r2)
-            await timap[player.tag].edit(nick = f'[Member] {player.name}')
-
+        if player.tag in timap:
+            for role in timap[player.tag].roles:
+                if role.name in ['[Leader]', '[Co]', '[Elder]', '[Member]']:
+                    if player.name != ' '.join(timap[player.tag].nick.split()[1:]):
+                        embed = discord.Embed(
+                            title = f"{' '.join(timap[player.tag].nick.split()[1:])} now called {player.name}",
+                            description = f'{timap[player.tag].mention}',
+                            url = player.share_link,
+                            color = role.color
+                        )
+                        embed.set_thumbnail(url = timap[player.tag].avatar_url)
+                        await timap[player.tag].edit(nick = f'{timap[player.tag].nick.split()[0]} {player.name}')
+                        await timap[player.tag].guild.get_channel(765518841899778059).send(embed = embed)
+                    break
+                elif role.name == '[WaitingList]':
+                    r1 = discord.utils.get(timap[player.tag].guild.roles, name = '[Member]')
+                    r2 = discord.utils.get(timap[player.tag].guild.roles, name = '[WaitingList]')
+                    await timap[player.tag].add_roles(r1)
+                    await timap[player.tag].remove_roles(r2)
+                    await timap[player.tag].edit(nick = f'[Member] {player.name}')
+                    break
+            else:
+                pass #Future role for guest players joining via discord.
+            
     @client.event
     @coc.ClanEvents.member_name(tags=["#229Y8VYP2"])
     async def foo(old_name, new_name, player):
@@ -258,5 +273,7 @@ async def ping(ctx):
     await ctx.send('Pong '+ str(round(bot.latency*1000))+'ms')
 
 
+
 bot.loop.create_task(cocev())
 bot.run(os.environ['BH-BOT_Token'])
+
