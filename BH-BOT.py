@@ -37,12 +37,13 @@ def links(server_id = os.environ['BH-serv_id'], file = 'Data.bh', t2m = True):
 
 @bot.event
 async def on_ready():
+    await bot.change_presence( activity = discord.Activity(name = 'BraZZerS', type = discord.ActivityType.watching))
     print('Bot is ready...')
 
 @bot.event
 async def on_member_join(new : discord.Member):
     wlcmsg = f'''Hey {new.mention}, Welcome to  :broken_heart: Broken Hearts\** :broken_heart: !
-    **
+**
 We only accept <:th10:769275244262588437>TH10, <:th11:769275245152043048>TH11, <:th12:769291986221924412>TH12 and <:th13:769292071692795966>TH13 !
 
 If you are interested to join our clan do the following:
@@ -85,6 +86,7 @@ async def cocev():
     @coc.ClanEvents.member_join(tags=["#229Y8VYP2"])
     async def foo(player, clan):
         timap = links()
+        print(player.tag, clan.tag)
         if player.tag in timap:
             for role in timap[player.tag].roles:
                 if role.name in ['[Leader]', '[Co]', '[Elder]', '[Member]']:
@@ -111,13 +113,13 @@ async def cocev():
             
     @client.event
     @coc.ClanEvents.member_name(tags=["#229Y8VYP2"])
-    async def foo(old_name, new_name, player):
+    async def foo(old_player, new_player):
         ti = links()
-        if str(player.tag) in ti:
+        if new_player.tag in ti:
             cr = ['[Leader]', '[Co]', '[Elder]', '[Member]']
-            for dr in ti[player.tag].roles:
+            for dr in ti[new_player.tag].roles:
                 if dr.name in cr:
-                    await ti[player.tag].edit(nick = f'{dr.name} {new_name}')
+                    await ti[new_player.tag].edit(nick = f'{dr.name} {new_player.name}')
                     break
      
 
@@ -271,7 +273,6 @@ async def foo(ctx, error):
 @bot.command()
 async def ping(ctx):
     await ctx.send('Pong '+ str(round(bot.latency*1000))+'ms')
-
 
 
 bot.loop.create_task(cocev())
