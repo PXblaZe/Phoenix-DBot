@@ -123,6 +123,7 @@ async def cocev():
                     break
      
 
+
 ''' COMMANDS '''
 
 @commands.has_any_role('[Admin]', '[Leader]', '[Co]', '[Elder]')
@@ -166,7 +167,7 @@ Feel free to use {discord_member.guild.get_channel(765501711694954518).mention} 
 @select.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** ` {bot.command_prefix}clan Discord_Member #Player_Tag `\n**Error:** {error}')
+        await ctx.send(f'**Usage:** ` {bot.command_prefix}select Discord_Member #Player_Tag `\n**Error:** {error}')
     elif isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invalid Player Tag')
     elif isinstance(error, Exception):
