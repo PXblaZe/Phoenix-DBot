@@ -9,10 +9,10 @@ from discord.ext import commands
 client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
 bot = commands.Bot(command_prefix = '-', intents = discord.Intents.all())
 condb = pymysql.connect(
-    host = 'remotemysql.com',
-    user = 'aMHwQr1em9',
-    password = '5B0eL8BD5n',
-    db = 'aMHwQr1em9',
+    host = os.environ['DBhost'],
+    user = os.environ['DBuser'],
+    password = os.environ['DBpass'],
+    db = os.environ['DB'],
     cursorclass=pymysql.cursors.DictCursor
 )
 
