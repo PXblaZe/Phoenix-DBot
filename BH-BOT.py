@@ -52,7 +52,7 @@ def append(table: str, data, column = ''):
                         dt = dt[:-2]+')'
                     with condb.cursor() as cur:
                         cur.execute(f"insert into {table.lower()}{clm} values{dt}")
-    except Exception as e: print('Append Error:', e)
+    except Exception as e: print('AppendError:', e)
     finally:condb.commit()
 
 def update(table: str, column: str, value: str, id: str):
@@ -63,7 +63,7 @@ def update(table: str, column: str, value: str, id: str):
         elif table.lower() == 'players':
             with condb.cursor() as cur:
                 cur.execute(f"UPDATE players SET {column} = '{value}' WHERE member = '{id}'")
-    except Exception as e: print('Update Error: ', e)
+    except Exception as e: print('UpdateError: ', e)
     finally: condb.commit()
 
 def get(column: str, table: str, pkid: int):
@@ -88,7 +88,7 @@ def links(server_id : int, t2m = True):
                 for it in ld:
                     mapin[int(it['member'])] = it['player_tag']
         return mapin
-    except Exception as e: print('Link Error:', e)
+    except Exception as e: print('LinkError:', e)
 
 def saved_guild(clan_tag = tuple()): 
     try:
@@ -106,7 +106,7 @@ def saved_guild(clan_tag = tuple()):
                 guilds.append(bot.get_guild(int(guildid['guild_id'])))
         if len(guilds) == 1: return guilds[0]
         else: return guilds 
-    except Exception as e: print('Saved_Guild_Error:', e)
+    except Exception as e: print('SavedGuildError:', e)
         
 def saved_clan_tag(guild_id = tuple()):
     try:
@@ -122,46 +122,44 @@ def saved_clan_tag(guild_id = tuple()):
             for clantag in cur.fetchall():
                 clans.append(clantag['clan_tag'])
         return clans
-    except Exception as e: print('Saved_Clan_Tag Error:', e)
+    except Exception as e: print('SavedClanTag Error:', e)
 
 def clan_roles(roles):
-    print('roles:', roles)
-    rval = tuple()
-    if len(roles) == 1 and roles[0] == "*":
-        with condb.cursor() as cur:
-            cur.execute('select leader, co, elder, member from servers')
-            fl = cur.fetchall()
-            for dic in fl:
-                if dic['leader']:
-                    rval += int(dic['leader'])
-                if dic['co']:
-                    rval += int(dic['co'])
-                if dic['elder']:
-                    rval += int(dic['elder'])
-                if dic['member']:
-                    rval += int(dic['member']),
-    elif roles[0] != '*' and len(roles) == 1:
-        with condb.cursor() as cur:
-            cur.execute(f"select {roles[0]} from servers")
-            val = int(cur.fetchone()[roles[0]])
-            for guild in bot.guilds:
-                if val in [role.id for role in guild.roles]: 
-                    return guild.get_role(val)
-    elif len(roles) > 1:
-        with condb.cursor() as cur:
-            clms = roles[0]
-            for i in roles[1:]: clms += f', {i}'
-            print('clms:', clms)
-            cur.execute(f"select {clms} from servers")
-            fl = cur.fetchall()
-            print(fl)
-            rl = clms.split(', ')
-            for dic in fl:
-                for i in rl:
-                    if dic[i]:
-                        rval += int(dic[i]),
-    print('rval:', rval)
-    return rval
+    try:
+        rval = tuple()
+        if len(roles) == 1 and roles[0] == "*":
+            with condb.cursor() as cur:
+                cur.execute('select leader, co, elder, member from servers')
+                fl = cur.fetchall()
+                for dic in fl:
+                    if dic['leader']:
+                        rval += int(dic['leader'])
+                    if dic['co']:
+                        rval += int(dic['co'])
+                    if dic['elder']:
+                        rval += int(dic['elder'])
+                    if dic['member']:
+                        rval += int(dic['member']),
+        elif roles[0] != '*' and len(roles) == 1:
+            with condb.cursor() as cur:
+                cur.execute(f"select {roles[0]} from servers")
+                val = int(cur.fetchone()[roles[0]])
+                for guild in bot.guilds:
+                    if val in [role.id for role in guild.roles]: 
+                        return guild.get_role(val)
+        elif len(roles) > 1:
+            with condb.cursor() as cur:
+                clms = roles[0]
+                for i in roles[1:]: clms += f', {i}'
+                cur.execute(f"select {clms} from servers")
+                fl = cur.fetchall()
+                rl = clms.split(', ')
+                for dic in fl:
+                    for i in rl:
+                        if dic[i]:
+                            rval += int(dic[i]),
+        return rval
+    except Exception as e: print('ClanRolesError:', e)
 
 
 '''SetUp Commands'''
@@ -376,19 +374,20 @@ async def foo(ctx, error):
 @bot.command()
 async def clan(ctx, clan_tag):
     cln = await client.get_clan(clan_tag)
-    timap = links(server_id = saved_guild([clan_tag]).id)
     val = ''
     for cm in cln.members:
         if str(cm.role) == 'Leader':
+            if saved_guild([clan_tag]) != []: timap = links(server_id = saved_guild([clan_tag]).id)
+            else: timap = {}
             if cm.tag in timap:
                 val = f'{timap[cm.tag].mention} (`{cm.name}`)'
             else:
                 val = f'`{cm.name}`'
             break
     det = f':link:**Tag :** `{cln.tag}`\n\n:crossed_swords:**League :** `{cln.war_league}`\n\n:crown:**Leader :** {val}\n\n:arrow_forward:**Link :** [Open Game]({cln.share_link} "{cln.name}")'
-    if cln.tag in timap: 
-        nm = timap[cln.tag].name
-        bdg = timap[cln.tag].icon_url
+    if clan_tag in saved_clan_tag(): 
+        nm = ctx.guild.name
+        bdg = ctx.guild.icon_url
     else: 
         nm = cln.name
         bdg = cln.badge.url
@@ -411,7 +410,6 @@ async def foo(ctx, error):
         await ctx.send('**Error:** Invalid Clan Tag')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
-
 
 @bot.command(aliases = ['remove'])
 async def kick(ctx, member : discord.Member, reason = ''):
