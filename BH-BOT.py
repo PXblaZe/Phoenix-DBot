@@ -6,6 +6,7 @@ import discord
 import pymysql
 from discord.ext import commands
 
+
 client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
 bot = commands.Bot(command_prefix = '-', intents = discord.Intents.all())
 condb = pymysql.connect(
@@ -22,13 +23,13 @@ rl_tokens = {'-l': 'leader', '-c': 'co', '-e': 'elder', '-m': 'member', '-w': 'w
 
 '''DataBase'''
 
-def eject(table: str, pkid: int):
+def eject(table: str, pkid: int, mg = ''):
     try:
         with condb.cursor() as cur:
-            if table.lower() == 'servers':
+            if table.lower() == 'servers' and mg == '':
                 cur.execute(f"delete from servers where guild_id = '{pkid}'")
-            elif table.lower() == 'players':
-                cur.execute(f"delete from players where member = '{pkid}'")
+            elif table.lower() == 'players' and mg != '':
+                cur.execute(f"delete from players where member = '{pkid}' and guild_id = '{mg}'")
     except Exception as e: print('EjectError:', e)
     finally: condb.commit()
 
@@ -307,7 +308,6 @@ async def select(ctx, discord_member: discord.Member, player_tag):
         if mr.id in clan_roles(list(rl_tokens.values())[:3]):
             run = True
             break
-
     if run:
         player = await client.get_player(player_tag)
         for role in discord_member.roles:
@@ -420,7 +420,7 @@ async def kick(ctx, member : discord.Member, reason = ''):
             break
     if run:
         if member.id in links(server_id = ctx.author.guild.id, t2m=False):
-            eject('players', member.id)
+            eject('players', member.id, mg = ctx.author.guild.id)
             await member.kick(reason=reason)
             reason = (lambda reason: 'no reason was given.' if (reason == '') else reason)(reason)
             await ctx.send(f'Successfully kicked `{member.mention}`\n**Reason:** {reason}\n`kicked by {ctx.author}`')
