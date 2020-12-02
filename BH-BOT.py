@@ -1,4 +1,4 @@
-#testing
+#testing, only COC events are left.
 import os
 import coc
 import asyncio
@@ -120,9 +120,11 @@ def saved_clan_tag(guild_id = tuple()):
                 for i in guild_id: gd += f"'{i}', "
                 else: gd = gd[:-2]+')'
                 cur.execute(f"select clan_tag from servers where guild_id in {gd}")
-            for clantag in cur.fetchall():
+            fetch = cur.fetchall()
+            for clantag in fetch:
                 clans.append(clantag['clan_tag'])
-        return clans
+        if len(clans) == 1: return clans[0]
+        else: return clans
     except Exception as e: print('SavedClanTag Error:', e)
 
 def clan_roles(roles):
@@ -219,12 +221,12 @@ We only accept TH10, TH11, TH12 and TH13 !
 
 If you are interested to join our clan do the following:
 
-  1.** Send a screenshot of your in game profile, with your player tag visible.
+1.** Send a screenshot of your in game profile, with your player tag visible.
 **2.** Send your player tag in text form. 
 **3.** Send a screenshot of your base. It must be in a war base slot.
 **4.** Wait for an answer from one of the staff.
 
-*If you need any help ask it in {new.guild.get_channel(get(ch_tokens['-hlp'], 'servers', new.guild.id)).mention} channel.* :slight_smile:'''
+*If you need any help ask it in <#{get(ch_tokens['-hlp'], 'servers', new.guild.id)}> channel.* :slight_smile:'''
     role = discord.utils.get(new.guild.roles, id = get(rl_tokens['-n'], 'servers', new.guild.id))
     await new.add_roles(role)
     await new.guild.get_channel(get(ch_tokens['-wel'], 'servers', new.guild.id)).send(wlcmsg)
@@ -259,14 +261,14 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_join(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def foo(player, clan):
-        timap = links(saved_guild(clan.tag).id)
+        timap = links(saved_guild([clan.tag]).id)
         if player.tag in timap:
             for role in timap[player.tag].roles:
                 if role.id in [get(i, 'servers',timap[player.tag].id) for i in list(rl_tokens.values())[:4] if not get(i, 'servers',timap[player.tag].id) == None]:
                     if player.name != ' '.join(timap[player.tag].nick.split()[1:]):
                         embed = discord.Embed(
                             title = f"{' '.join(timap[player.tag].nick.split()[1:])} now called {player.name}",
-                            description = f'`{timap[player.tag].mention}`',
+                            description = f'`{timap[player.tag].display_name}`',
                             url = player.share_link,
                             color = role.color
                         )
@@ -287,7 +289,7 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_name(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def foo(old_player, new_player):
-        ti = links(saved_guild(new_player.clan.tag).id)
+        ti = links(saved_guild([new_player.clan.tag]).id)
         if new_player.tag in ti:
             cr = [get(i, 'servers',timap[player.tag].id) for i in list(rl_tokens.values())[:4] if not get(i, 'servers',timap[player.tag].id) == None]
             for dr in ti[new_player.tag].roles:
@@ -304,45 +306,43 @@ async def cocev():
 @bot.command(aliases = ['link'])
 async def select(ctx, discord_member: discord.Member, player_tag):
     run = False
-    for mr in discord_member.roles:
+    for mr in ctx.author.roles:
         if mr.id in clan_roles(list(rl_tokens.values())[:3]):
             run = True
             break
     if run:
         player = await client.get_player(player_tag)
         for role in discord_member.roles:
-            if role.id == get(rl_tokens['-n'], 'servers', ctx.author.guild.id):
-                role = discord.utils.get(discord_member.guild.roles, id=get(rl_tokens['-w'], 'servers', ctx.author.guild.id))
-                r2 = discord.utils.get(discord_member.guild.roles, id=get(rl_tokens['-n'], 'servers', ctx.author.guild.id))
+            if role.id == get(rl_tokens['-n'], 'servers', ctx.guild.id):
+                role = discord.utils.get(discord_member.guild.roles, id=get(rl_tokens['-w'], 'servers', ctx.guild.id))
+                r2 = discord.utils.get(discord_member.guild.roles, id=get(rl_tokens['-n'], 'servers', ctx.guild.id))
                 th = player.town_hall
                 await discord_member.edit(nick = f'[TH{th}] {player.name}')
                 append('players', [discord_member.id, player_tag, ctx.guild.id])
                 await discord_member.add_roles(role)
                 await discord_member.remove_roles(r2)
                 selm = f'''
-Hey {discord_member.mention}, **Your base is selected !!!**
+Hey {discord_member.mention}, **Your base is selected !!!
 
-**You are now in **waiting list**, if we don't have spot in our clan.
+You are now in waiting list, if we don't have spot in our clan.
 
 We will dm you a shortlist message if you will be accepted by,
 
-<@&{get(rl_tokens('-l'), 'servers', ctx.author.guild.id)}>, <@&{get(rl_tokens('-c'), 'servers', ctx.author.guild.id)}> or <@&{get(rl_tokens('-e'), 'servers', ctx.author.guild.id)}> of our clan.
+<@&{get(rl_tokens['-l'], 'servers', ctx.guild.id)}>, <@&{get(rl_tokens['-c'], 'servers', ctx.guild.id)}> or <@&{get(rl_tokens['-e'], 'servers', ctx.guild.id)}> of our clan.
 
-Till than checkout our channel make some new friends, we'll select you as
+Till than checkout our channel make some new friends, we'll select you 
+as soon as possible if any spot available in our clan.
 
-soon as possible if any spot available in our clan.
-
-Feel free to use <#{get(ch_tokens('-hlp'), 'servers', ctx.author.guild.id)}> channel if you have any problem.**
-
-    '''
-                await discord_member.guild.get_channel(get(ch_tokens('-wtg'), 'servers', ctx.author.guild.id)).send(selm)
+Feel free to use <#{get(ch_tokens['-hlp'], 'servers', ctx.guild.id)}> channel if you have any problem.**
+'''
+                await discord_member.guild.get_channel(get(ch_tokens['-wtg'], 'servers', ctx.guild.id)).send(selm)
                 await ctx.send('**Successfully Selected.**')
                 break
         else:
             if discord_member.id in links(discord_member.guild.id, t2m=False): 
-                await ctx.send('***This discord member is already linked.***')
+                await ctx.send(f'{discord_member.display_name} ***is already linked.***')
             else:
-                append(data=f'{discord_member.id} {player_tag}')
+                append('players', [discord_member.id, player_tag, ctx.guild.id])
                 await ctx.send('**Successfully Linked.**')
 @select.error
 async def foo(ctx, error):
@@ -412,9 +412,9 @@ async def foo(ctx, error):
         await ctx.send(f'**Error:** {error}')
 
 @bot.command(aliases = ['remove'])
-async def kick(ctx, member : discord.Member, reason = ''):
+async def kick(ctx, member : discord.Member, *, reason = ''):
     run = False
-    for mr in member.roles:
+    for mr in ctx.author.roles:
         if mr.id in clan_roles(list(rl_tokens.values())[:2]):
             run = True
             break
@@ -423,7 +423,7 @@ async def kick(ctx, member : discord.Member, reason = ''):
             eject('players', member.id, mg = ctx.author.guild.id)
             await member.kick(reason=reason)
             reason = (lambda reason: 'no reason was given.' if (reason == '') else reason)(reason)
-            await ctx.send(f'Successfully kicked `{member.mention}`\n**Reason:** {reason}\n`kicked by {ctx.author}`')
+            await ctx.send(f'Successfully kicked {member.display_name}\n**Reason:** {reason}\nkicked by {ctx.author.mention}')
 @kick.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
@@ -434,23 +434,24 @@ async def foo(ctx, error):
 @bot.command()
 async def accept(ctx, member: discord.Member):
     run = False
-    for mr in member.roles:
+    for mr in ctx.author.roles:
         if mr.id in clan_roles(list(rl_tokens.values())[:3]):
             run = True
             break
     if run:
         for role in member.roles:
             if role.id == get(rl_tokens['-w'], 'servers', ctx.author.guild.id):
+                clan = await client.get_clan(saved_clan_tag([ctx.guild.id]))
                 accE = discord.Embed(
-                    title = f'**{ctx.author.guild.name}**',
+                    title = f'**{ctx.guild.name}**',
                     description = f"\nHey {member.mention},\n\n**You are shortlisted to be a member of our Clan !!!**\n\nYou will have invite send from our clan if not\njust ask it with the screenshot of this message\nin {member.guild.get_channel(get(ch_tokens['-hlp'], 'servers', ctx.author.guild.id)).mention} channel of our discord server." ,
-                    url = 'https://discord.gg/DZYbQHs7cd'        
+                    url = clan.share_link      
                 )
                 await member.send(embed=accE)
                 await ctx.send('**Successfully Accepted.**')
                 break
         else:
-            await ctx.send(f'**Error:** member {member.mention} is not in [WaitingList]')
+            await ctx.send(f'**Error:** member {member.mention} is not in Waiting List')
 @accept.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
