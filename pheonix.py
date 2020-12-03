@@ -1,4 +1,5 @@
-#testing, only COC events are left.
+# storing custom prefixes n using them
+# testing, only COC events are left.
 import os
 import coc
 import asyncio
@@ -6,9 +7,6 @@ import discord
 import pymysql
 from discord.ext import commands
 
-
-client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
-bot = commands.Bot(command_prefix = '-', intents = discord.Intents.all())
 condb = pymysql.connect(
     host = os.environ['DBhost'],
     user = os.environ['DBuser'],
@@ -16,6 +14,17 @@ condb = pymysql.connect(
     db = os.environ['DB'],
     cursorclass=pymysql.cursors.DictCursor
 )
+
+async def get_prefix(bot, message):
+    with condb.cursor() as cur:
+        cur.execute("select guild_id, prefix from prefixes")
+        fetch = cur.fetchall()
+    for fd in fetch:
+        if fd['guild_id'] == str(message.guild.id): return fd['prefix']
+    else: return '-'
+
+client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
+bot = commands.Bot(command_prefix = get_prefix, intents = discord.Intents.all())
 
 ch_tokens = {'-fd': 'feed', '-wel': 'welcome', '-wtg': 'waiting', '-hlp': 'help'}
 rl_tokens = {'-l': 'leader', '-c': 'co', '-e': 'elder', '-m': 'member', '-w': 'wrole', '-n': 'new'}
@@ -33,17 +42,17 @@ def eject(table: str, pkid: int, mg = ''):
     except Exception as e: print('EjectError:', e)
     finally: condb.commit()
 
-def append(table: str, data, column = ''):
+def append(table: str, data: list, column = ''):
     try:
         if type(data) in [list, tuple]:
-            if column == '' and len(data) in [len(ch_tokens)+len(rl_tokens), 3] :
+            if column == '' and len(data) in [len(ch_tokens)+len(rl_tokens), 3, 2] :
                 val = '('
                 for i in data: val += f"'{i}', "
                 else: val = val[:-2]+')'
                 with condb.cursor() as cur:
                     cur.execute(f"insert into {table.lower()} values{val}")
             elif type(column) in [tuple, list] and len(column) == len(data):
-                if (table.lower() == 'servers' and len(column) <= len(ch_tokens)+len(rl_tokens)) or (table.lower() == 'players' and len(column) <= 3):
+                if (table.lower() == 'servers' and len(column) <= len(ch_tokens)+len(rl_tokens)) or (table.lower() == 'players' and len(column) <= 3) or (table.lower() == 'prefixes' and len(column) <= 2):
                     clm = dt = '('
                     for i in range(len(data)):
                         clm += f"{column[i]}, "
@@ -58,9 +67,9 @@ def append(table: str, data, column = ''):
 
 def update(table: str, column: str, value: str, id: str):
     try:
-        if table.lower() == 'servers':
+        if table.lower() in ['servers', 'prefixes']:
             with condb.cursor() as cur:
-                cur.execute(f"UPDATE servers SET {column} = '{value}' WHERE guild_id = '{id}'")
+                cur.execute(f"UPDATE {table.lower()} SET {column} = '{value}' WHERE guild_id = '{id}'")
         elif table.lower() == 'players':
             with condb.cursor() as cur:
                 cur.execute(f"UPDATE players SET {column} = '{value}' WHERE member = '{id}'")
@@ -211,7 +220,14 @@ async def role(ctx, *, arg):
 @bot.event
 async def on_ready():
     await bot.change_presence( activity = discord.Activity(name = 'BraZZerS', type = discord.ActivityType.watching))
-    print('Bot is ready...')
+    print('Bot is ready...', str(bot.command_prefix))
+
+@bot.event    
+async def on_message(message: discord.Message):
+    cntl = message.content.split()
+    if len(cntl) == 3 and cntl[0][3:-1] == str(bot.user.id) and (cntl[1].lower() in ['prefix', 'set', 'set_prefix']):
+        append('prefixes', [message.guild.id, cntl[2]])
+    await bot.process_commands(message)     
 
 @bot.event
 async def on_member_join(new : discord.Member):
