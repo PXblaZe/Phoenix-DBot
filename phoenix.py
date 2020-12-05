@@ -14,7 +14,8 @@ condb = pymysql.connect(
     cursorclass=pymysql.cursors.DictCursor
 )
 
-async def get_prefix(bot, message):
+
+def get_prefix(bot, message):
     with condb.cursor() as cur:
         cur.execute("select guild_id, prefix from prefixes")
         fetch = cur.fetchall()
@@ -61,8 +62,14 @@ def append(table: str, data: list, column = ''):
                         dt = dt[:-2]+')'
                     with condb.cursor() as cur:
                         cur.execute(f"insert into {table.lower()}{clm} values{dt}")
-    except Exception as e: print('AppendError:', e)
-    finally:condb.commit()
+    except pymysql.err.IntegrityError as e: flag = False
+    except Exception as e: 
+        flag = False
+        print('AppendError:', e)
+    else: flag = True
+    finally:
+        condb.commit()
+        return flag
 
 def update(table: str, column: str, value: str, id: str):
     try:
@@ -72,8 +79,13 @@ def update(table: str, column: str, value: str, id: str):
         elif table.lower() == 'players':
             with condb.cursor() as cur:
                 cur.execute(f"UPDATE players SET {column} = '{value}' WHERE member = '{id}'")
-    except Exception as e: print('UpdateError: ', e)
-    finally: condb.commit()
+    except Exception as e: 
+        flag = False
+        print('UpdateError: ', e)
+    else: flag = True
+    finally: 
+        condb.commit()
+        return flag
 
 def get(column: str, table: str, pkid: int):
     with condb.cursor() as cur:
@@ -219,14 +231,19 @@ async def role(ctx, *, arg):
 @bot.event
 async def on_ready():
     await bot.change_presence( activity = discord.Activity(name = 'BraZZerS', type = discord.ActivityType.watching))
-    print('Bot is ready...', str(bot.command_prefix))
+    print('Bot is ready...')
 
 @bot.event    
 async def on_message(message: discord.Message):
     cntl = message.content.split()
-    if len(cntl) == 3 and cntl[0][3:-1] == str(bot.user.id) and (cntl[1].lower() in ['prefix', 'set', 'set_prefix']):
-        append('prefixes', [message.guild.id, cntl[2]])
-    await bot.process_commands(message)     
+    if len(cntl) in [2, 3] and cntl[0][2:-1] == str(bot.user.id) and (cntl[1].lower() in ['prefix', 'set', 'set_prefix', 'setprefix']):
+        if len(cntl) == 2: cntl.append('')
+        if append('prefixes', [message.guild.id, cntl[2]]): 
+            await message.channel.send(f'Prefix changed to `{(lambda para: None if not para else para)(cntl[2])}`')
+        else: 
+            update('prefixes', 'prefix', cntl[2], message.guild.id)
+            await message.channel.send(f'Prefix changed to `{(lambda para: None if not para else para)(cntl[2])}`')
+    else: await bot.process_commands(message)     
 
 @bot.event
 async def on_member_join(new : discord.Member):
@@ -314,7 +331,7 @@ async def cocev():
                     else:
                         await ti[new_player.tag].edit(nick = f'[{new_player.role}] {new_player.name}')
                     break
-     
+
 
 ''' COMMANDS '''
 
@@ -362,7 +379,7 @@ Feel free to use <#{get(ch_tokens['-hlp'], 'servers', ctx.guild.id)}> channel if
 @select.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** ` {bot.command_prefix}select Discord_Member #Player_Tag `\n**Error:** {error}')
+        await ctx.send(f'**Usage:** ` {get_prefix(bot, ctx.message)}select Discord_Member #Player_Tag `\n**Error:** {error}')
     elif isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invalid Player Tag')
     elif isinstance(error, Exception):
@@ -381,7 +398,7 @@ async def clear(ctx, lines = 1):
 @clear.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.BadArgument):
-        await ctx.send(f'**Usage:** ` {bot.command_prefix}clear [no. of lines] `\n**Error:** Invalid Argument! Use a no. not a text.')
+        await ctx.send(f'**Usage:** ` {get_prefix(bot, ctx.message)}clear [no. of lines] `\n**Error:** Invalid Argument! Use a no. not a text.')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 
@@ -420,7 +437,7 @@ async def clan(ctx, clan_tag):
 @clan.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** `{bot.command_prefix}clan #clan_tag`')
+        await ctx.send(f'**Usage:** `{get_prefix(bot, ctx.message)}clan #clan_tag`')
     elif isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invalid Clan Tag')
     elif isinstance(error, Exception):
@@ -442,7 +459,7 @@ async def kick(ctx, member : discord.Member, *, reason = ''):
 @kick.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** `{bot.command_prefix}kick Discord_Member reason`')
+        await ctx.send(f'**Usage:** `{get_prefix(bot, ctx.message)}kick Discord_Member reason`')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 
@@ -470,7 +487,7 @@ async def accept(ctx, member: discord.Member):
 @accept.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** `{bot.command_prefix}accept <member of waiting list>`\n**Error:** {error}')
+        await ctx.send(f'**Usage:** `{get_prefix(bot, ctx.message)}accept <member of waiting list>`\n**Error:** {error}')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
     
