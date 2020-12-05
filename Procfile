@@ -1,1 +1,1 @@
-worker: python BH-BOT.py
+worker: python phoenix.py
