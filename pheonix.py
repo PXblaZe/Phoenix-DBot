@@ -1,4 +1,3 @@
-# storing custom prefixes n using them
 # testing, only COC events are left.
 import os
 import coc
