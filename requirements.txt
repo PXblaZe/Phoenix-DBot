@@ -1,4 +1,3 @@
-discord.py
-git+https://github.com/mathsman5133/coc.py
-asyncio
+coc.py
 pymysql
+discord.py
