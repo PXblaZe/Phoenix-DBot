@@ -1,7 +1,8 @@
-# testing, only COC events are left.
+#create help command for setup.
+#create help command for prefix.
+#testing COC events.
 import os
 import coc
-import asyncio
 import discord
 import pymysql
 from discord.ext import commands
@@ -14,8 +15,7 @@ condb = pymysql.connect(
     cursorclass=pymysql.cursors.DictCursor
 )
 
-
-def get_prefix(bot, message):
+async def get_prefix(bot, message):
     with condb.cursor() as cur:
         cur.execute("select guild_id, prefix from prefixes")
         fetch = cur.fetchall()
@@ -24,7 +24,7 @@ def get_prefix(bot, message):
     else: return '-'
 
 client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
-bot = commands.Bot(command_prefix = get_prefix, intents = discord.Intents.all())
+bot = commands.Bot(command_prefix = get_prefix, help_command = None, intents = discord.Intents.all())
 
 ch_tokens = {'-fd': 'feed', '-wel': 'welcome', '-wtg': 'waiting', '-hlp': 'help'}
 rl_tokens = {'-l': 'leader', '-c': 'co', '-e': 'elder', '-m': 'member', '-w': 'wrole', '-n': 'new'}
@@ -188,43 +188,94 @@ def clan_roles(roles):
 '''SetUp Commands'''
 
 @bot.group()
+@commands.has_permissions(administrator=True)
 async def setup(ctx):
     if not ctx.author.guild in saved_guild():
         append(table='servers', column=['guild_id'], data=[ctx.author.guild.id])
-@setup.command(aliases = ['edit'])
-async def all(ctx, *, arg):
-    try:
-        tknsl = arg.split()
-        for i in range(len(tknsl)):
-            if tknsl[i] in ch_tokens:
-                update('servers', tokens[tknsl[i]], tknsl[i-1][2:-1], ctx.author.guild.id)
-            elif tknsl[i] in rl_tokens:
-                update('servers', rl_tokens[tknsl[i]], tknsl[i-1][3:-1], ctx.author.guild.id)
-    except Exception as e: print(e)
+
+@setup.command(aliases = ['ch'])
+@commands.has_permissions(administrator=True)
+async def channel(ctx, *, arg):
+    tknsl = arg.split()
+    it = list()
+    if not len(tknsl)%2 and tknsl:
+        tknsl = dict([j for j in [tuple([tknsl[i+1], tknsl[i][2:-1]]) if tknsl[i+1] in ch_tokens else it.append(tknsl[i+1]) for i in range(0,len(tknsl),2)] if j])
+    else: tknsl = {}
+    for tkn in tknsl:
+        if ctx.guild.get_channel(int(tknsl[tkn])):
+            update('servers', ch_tokens[tkn], tknsl[tkn], ctx.author.guild.id)
+    else: 
+        if tknsl: 
+            await ctx.send('**Updated Channel(s):**\n'+'\n'.join([ch_tokens[i].capitalize()+' --> <#'+tknsl[i]+'>' for i in tknsl]))
+        else:
+            if arg: await ctx.send('**Error:** Invalid Input. !!!')
+        if it: await ctx.send(f'**Invalid token(s):** {", ".join(it)}')
+@channel.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.invoke(bot.get_command('help', ['setup',]))
+    elif isinstance(error, commands.errors.CommandInvokeError):
+        await ctx.send('**Error:** Invalid Channel(s).')
+
+@setup.command(aliases = ['rl'])
+@commands.has_permissions(administrator=True)
+async def role(ctx, *, arg):
+    tknsl = arg.split()
+    it = list()
+    if not len(tknsl)%2 and tknsl:
+        tknsl = dict([j for j in [tuple([tknsl[i+1], tknsl[i][3:-1]]) if tknsl[i+1] in rl_tokens else it.append(tknsl[i+1]) for i in range(0,len(tknsl),2)] if j])
+    else: tknsl = {}
+    for tkn in tknsl:
+        if ctx.guild.get_role(int(tknsl[tkn])):
+            update('servers', rl_tokens[tkn], tknsl[tkn], ctx.author.guild.id)
+    else: 
+        if tknsl: 
+            await ctx.send('**Updated Role(s): **\n'+'\n'.join([rl_tokens[i].capitalize()+' --> <@&'+tknsl[i]+'>' for i in tknsl]))
+        else:
+            await ctx.send('**Error:** Invalid Input. !!!')
+        if it: await ctx.send(f'**Invalid token(s):** {", ".join(it)}')
+@role.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.invoke(bot.get_command('help setup role'))
+    elif isinstance(error, commands.errors.CommandInvokeError):
+        await ctx.send('**Error:** Invalid role(s).')
+
 @setup.command(aliases = ['clan', 'clan_tag'])
+@commands.has_permissions(administrator=True)
 async def tag(ctx, tag: str):
     if tag[0] == '#':
-        update('servers', 'clan_tag', tag, ctx.guild.id)
+        if await client.get_clan(tag) and not tag in saved_clan_tag():
+            update('servers', 'clan_tag', tag, ctx.guild.id)
+            await ctx.send('**Done**')
+        else:
+            await ctx.send('**Clan tag is Invalid or Already used by a Server.**')
     else:
-        ctx.send('**Error:** Invalid clan tag, it must be starts with "#"')
-@setup.command(aliases = ['ch'])
-async def channel(ctx, *, arg):
-    try:
-        tknsl = arg.split()
-        for i in range(len(tknsl)):
-            if tknsl[i] in ch_tokens:
-                update('servers', ch_tokens[tknsl[i]], tknsl[i-1][2:-1], ctx.author.guild.id)          
-    except Exception as e: print(e)
-@setup.command(aliases = ['rl'])
-async def role(ctx, *, arg):
-    try:
-        tknsl = arg.split()
-        for i in range(len(tknsl)):
-            if tknsl[i] in rl_tokens:
-                update('servers', rl_tokens[tknsl[i]], tknsl[i-1][3:-1], ctx.author.guild.id)
-    except Exception as e: print(e)
+        await ctx.send('**Error:** Clan tag must be starts with "#"')
+@tag.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.CommandInvokeError):
+        await ctx.send('**Error:** Invaild clan tag !!!')
+    elif isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.send('**Error:** Clan tag not found.')
 
-
+@setup.command(aliases = ['edit'])
+@commands.has_permissions(administrator=True)
+async def all(ctx, *, arg):
+    tknsl, rl, ch, it = arg.split(), tuple(), tuple(), tuple()
+    for i in range(len(tknsl)):
+        if tknsl[i] in ch_tokens: ch += tknsl[i-1], tknsl[i],
+        elif tknsl[i] in rl_tokens: rl += tknsl[i-1], tknsl[i],
+        elif i%2: it += tknsl[i],
+    if ch and not len(ch)%2: await ctx.invoke(bot.get_command('setup ch'), arg = ' '.join(ch))
+    if rl and not len(rl)%2: await ctx.invoke(bot.get_command('setup rl'), arg = ' '.join(rl))
+    if it: await ctx.send(f'**Invalid token(s):** {", ".join(it)}')
+@all.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.invoke(bot.get_command('help setup all'))
+    elif isinstance(error, commands.errors.CommandInvokeError):
+        await ctx.send('**Error:** Either role(s) or channel(s) is Invalid.')
 
 '''Discord EVENTS '''
 
@@ -247,9 +298,9 @@ async def on_message(message: discord.Message):
 
 @bot.event
 async def on_member_join(new : discord.Member):
-    wlcmsg = f'''Hey {new.mention}, Welcome to  :broken_heart: Broken Hearts\** :broken_heart: !
+    wlcmsg = f'''Hey {new.mention}, WelCome to **{new.guild.name}** !
 **
-We only accept TH10, TH11, TH12 and TH13 !
+We only accept <:th10:769275244262588437>TH10, <:th11:769275245152043048>TH11, <:th12:769291986221924412>TH12 and <:th13:769292071692795966>TH13 !
 
 If you are interested to join our clan do the following:
 
@@ -267,11 +318,12 @@ If you are interested to join our clan do the following:
 ''' COC EVENTS '''
 
 async def cocev():
-
     @client.event
     @coc.ClanEvents.member_role(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def on_role_updates(old_player, new_player):
-        timap = links(saved_guild([new_player.clan.tag]).id)
+        if saved_guild([new_player.clan.tag]):
+            timap = links(saved_guild([new_player.clan.tag]).id)
+        else: return
         if timap and new_player.tag in timap:
             r1 = discord.utils.get(timap[new_player.tag].guild.roles,  id = get())
             r2 = discord.utils.get(timap[new_player.tag].guild.roles, id = int(timap[old_player.tag]))
@@ -293,16 +345,18 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_join(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def foo(player, clan):
-        timap = links(saved_guild([clan.tag]).id)
+        if saved_guild([clan.tag]):
+            timap = links(saved_guild([clan.tag]).id)
+        else: return
         if player.tag in timap:
             for role in timap[player.tag].roles:
                 if role.id in [get(i, 'servers',timap[player.tag].id) for i in list(rl_tokens.values())[:4] if not get(i, 'servers',timap[player.tag].id) == None]:
                     if player.name != ' '.join(timap[player.tag].nick.split()[1:]):
                         embed = discord.Embed(
                             title = f"{' '.join(timap[player.tag].nick.split()[1:])} now called {player.name}",
-                            description = f'`{timap[player.tag].display_name}`',
+                            description = f'`{timap[player.tag].name}#{timap[player.tag].discriminator}`',
                             url = player.share_link,
-                            color = role.color
+                            color = timap[player.tag].color
                         )
                         embed.set_thumbnail(url = timap[player.tag].avatar_url)
                         await timap[player.tag].edit(nick = f'{timap[player.tag].nick.split()[0]} {player.name}')
@@ -321,7 +375,9 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_name(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def foo(old_player, new_player):
-        ti = links(saved_guild([new_player.clan.tag]).id)
+        if saved_guild([new_player.clan.tag]):
+            ti = links(saved_guild([new_player.clan.tag]).id)
+        else: return
         if new_player.tag in ti:
             cr = [get(i, 'servers',timap[player.tag].id) for i in list(rl_tokens.values())[:4] if not get(i, 'servers',timap[player.tag].id) == None]
             for dr in ti[new_player.tag].roles:
@@ -331,6 +387,71 @@ async def cocev():
                     else:
                         await ti[new_player.tag].edit(nick = f'[{new_player.role}] {new_player.name}')
                     break
+
+
+''' HELP COMMAND '''
+
+@bot.command()
+async def help(ctx: commands.Context, *, command = None):
+    cmd_names = [command.name for command in bot.commands]
+    help_embed = discord.Embed(
+        title = '**HELP COMMAND**' if command == None else command.upper() if bot.get_command(command.lower()) in bot.commands else 'COMMAND NOT FOUND !!!',
+        color = ctx.author.color
+    )
+    if not command:
+        help_embed.add_field(
+            name="**List of supported commands:**",
+            value='```\n'+f'1. <mention_bot>prefix [new_prefix]\n'+"\n".join([f'{i+2}. {ctx.prefix + x.name} {x.signature}' for i, x in enumerate(bot.commands)])+'\n```',
+            inline=False
+        )
+        help_embed.add_field(
+            name="Details",
+            value=f"Type `{ctx.prefix}help [command name]` for more details about each command.",
+            inline=False
+        )
+    elif bot.get_command(command.lower()) in bot.commands:
+        cmd = bot.get_command(command.lower())
+        if command.lower() == 'setup':
+            ct = '''
+abc
+                 '''
+            help_embed.add_field(
+                name=f'**{ctx.prefix}<channel|ch> **',
+                value=ct,
+            )
+            ch = 'abc'
+            help_embed.add_field(
+                name='**Channels**',
+                value=ch,
+            )
+            rl = 'abc'
+            help_embed.add_field(
+                name='**Roles**',
+                value=rl,
+            )
+            usg = '''
+abc
+                  '''
+            help_embed.add_field(
+                name='**Usage**',
+                value=usg,
+                inline=False
+            )
+        else:
+            help_embed.add_field(
+                name='Usage:',
+                value='`'+str(cmd.help)+'`',
+                inline=False
+            )
+            cn = lambda x: f'<{x.name}>' if not len(x.aliases) else f'<{x.name+"|"+"|".join(x.aliases)}>'
+            help_embed.add_field(
+                name='Syntex:',
+                value=f'`{ctx.prefix+cn(cmd)} {cmd.signature}`',
+                inline=False
+            )
+    help_embed.set_thumbnail(url = bot.user.avatar_url)
+    help_embed.set_footer(text=f"{ctx.author.name}#{ctx.author.discriminator}", icon_url=ctx.author.avatar_url)
+    await ctx.send(embed = help_embed) 
 
 
 ''' COMMANDS '''
@@ -374,19 +495,20 @@ Feel free to use <#{get(ch_tokens['-hlp'], 'servers', ctx.guild.id)}> channel if
             if discord_member.id in links(discord_member.guild.id, t2m=False): 
                 await ctx.send(f'{discord_member.display_name} ***is already linked.***')
             else:
-                append('players', [discord_member.id, player_tag, ctx.guild.id])
+                append('players', [discord_member.id, player_tag,ctx.guild.id])
                 await ctx.send('**Successfully Linked.**')
 @select.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** ` {get_prefix(bot, ctx.message)}select Discord_Member #Player_Tag `\n**Error:** {error}')
+        await ctx.send(f'**Usage:** ` {ctx.prefix}select Discord_Member #Player_Tag `\n**Error:** {error}')
     elif isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invalid Player Tag')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 
 @bot.command(aliases = ['clean', 'erase'])
-async def clear(ctx, lines = 1):
+async def clear(ctx, lines = None):
+    if not lines: lines = 1 
     run = False
     for mr in ctx.author.roles:
         if mr.id in clan_roles(list(rl_tokens.values())[:2]):
@@ -398,26 +520,26 @@ async def clear(ctx, lines = 1):
 @clear.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.BadArgument):
-        await ctx.send(f'**Usage:** ` {get_prefix(bot, ctx.message)}clear [no. of lines] `\n**Error:** Invalid Argument! Use a no. not a text.')
+        await ctx.send(f'**Usage:** ` {ctx.prefix}clear [no. of lines] `\n**Error:** Invalid Argument! Use a no. not a text.')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 
 
-@bot.command()
+@bot.command(help = 'Shows clan details and provide ClashOfStats and clan url of the clan_tag.')
 async def clan(ctx, clan_tag):
     cln = await client.get_clan(clan_tag)
     val = ''
     for cm in cln.members:
         if str(cm.role) == 'Leader':
-            if saved_guild([clan_tag]) != []: timap = links(server_id = saved_guild([clan_tag]).id)
+            if saved_guild([clan_tag]) != []: timap = links(saved_guild([clan_tag]).id)
             else: timap = {}
-            if cm.tag in timap:
+            if cm.tag in timap and ctx.guild == saved_guild([clan_tag]):
                 val = f'{timap[cm.tag].mention} (`{cm.name}`)'
             else:
                 val = f'`{cm.name}`'
             break
     det = f':link:**Tag :** `{cln.tag}`\n\n:crossed_swords:**League :** `{cln.war_league}`\n\n:crown:**Leader :** {val}\n\n:arrow_forward:**Link :** [Open Game]({cln.share_link} "{cln.name}")'
-    if clan_tag in saved_clan_tag(): 
+    if clan_tag in saved_clan_tag() and ctx.guild == saved_guild([clan_tag]): 
         nm = ctx.guild.name
         bdg = ctx.guild.icon_url
     else: 
@@ -437,13 +559,13 @@ async def clan(ctx, clan_tag):
 @clan.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** `{get_prefix(bot, ctx.message)}clan #clan_tag`')
+        await ctx.send(f'**Usage:** `{ctx.prefix}clan #clan_tag`')
     elif isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invalid Clan Tag')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 
-@bot.command(aliases = ['remove'])
+@bot.command(aliases = ['remove'], help = 'Used to kick a member from server and erase his/her data.')
 async def kick(ctx, member : discord.Member, *, reason = ''):
     run = False
     for mr in ctx.author.roles:
@@ -459,11 +581,11 @@ async def kick(ctx, member : discord.Member, *, reason = ''):
 @kick.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** `{get_prefix(bot, ctx.message)}kick Discord_Member reason`')
+        await ctx.send(f'**Usage:** `{ctx.prefix}kick Discord_Member reason`')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 
-@bot.command()
+@bot.command(help = 'Used to DM a member that he/she is accepted in the clan.')
 async def accept(ctx, member: discord.Member):
     run = False
     for mr in ctx.author.roles:
@@ -487,15 +609,22 @@ async def accept(ctx, member: discord.Member):
 @accept.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
-        await ctx.send(f'**Usage:** `{get_prefix(bot, ctx.message)}accept <member of waiting list>`\n**Error:** {error}')
+        await ctx.send(f'**Usage:** `{ctx.prefix}accept <member of waiting list>`\n**Error:** {error}')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
     
 
-@bot.command()
+@bot.command(help = "Shows the ping/latency of the bot in miliseconds.")
 async def ping(ctx):
     await ctx.send('Pong '+ str(round(bot.latency*1000))+'ms')
 
+@bot.command(help = 'Invoke a given command by bot.')
+async def invoke(ctx, *,text = ''):
+    tokens = text.split()
+    await ctx.invoke(bot.get_command(tokens[0]), *tokens[1:])
 
-bot.loop.create_task(cocev())
-bot.run(os.environ['BH-BOT_Token'])
+if __name__ == '__main__':
+    try:
+        bot.loop.create_task(cocev())
+        bot.run(os.environ['BH-BOT_Token'])
+    except coc.errors.GatewayError as e: print('MainError:', e)
