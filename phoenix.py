@@ -1,6 +1,5 @@
-#create help command for setup.
-#create help command for prefix.
 #testing COC events.
+#show command is under develpoment.
 import os
 import coc
 import discord
@@ -8,14 +7,13 @@ import pymysql
 from discord.ext import commands
 
 condb = pymysql.connect(
-    host = os.environ['DBhost'],
-    user = os.environ['DBuser'],
-    password = os.environ['DBpass'],
-    db = os.environ['DB'],
+    host = os.environ['CLEARDB_DATABASE_URL'][32:59],
+    user = os.environ['CLEARDB_DATABASE_URL'][8:22],
+    password = os.environ['CLEARDB_DATABASE_URL'][23:31],
+    db = os.environ['CLEARDB_DATABASE_URL'][60:82],
     cursorclass=pymysql.cursors.DictCursor
 )
-
-async def get_prefix(bot, message):
+def get_prefix(bot, message):
     with condb.cursor() as cur:
         cur.execute("select guild_id, prefix from prefixes")
         fetch = cur.fetchall()
@@ -25,7 +23,6 @@ async def get_prefix(bot, message):
 
 client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
 bot = commands.Bot(command_prefix = get_prefix, help_command = None, intents = discord.Intents.all())
-
 ch_tokens = {'-fd': 'feed', '-wel': 'welcome', '-wtg': 'waiting', '-hlp': 'help'}
 rl_tokens = {'-l': 'leader', '-c': 'co', '-e': 'elder', '-m': 'member', '-w': 'wrole', '-n': 'new'}
 
@@ -192,8 +189,10 @@ def clan_roles(roles):
 async def setup(ctx):
     if not ctx.author.guild in saved_guild():
         append(table='servers', column=['guild_id'], data=[ctx.author.guild.id])
-
-@setup.command(aliases = ['ch'])
+@setup.command(
+    aliases = ['ch'],
+    help = "TO initialize the channels for a given channel's tokens."
+)
 @commands.has_permissions(administrator=True)
 async def channel(ctx, *, arg):
     tknsl = arg.split()
@@ -206,7 +205,7 @@ async def channel(ctx, *, arg):
             update('servers', ch_tokens[tkn], tknsl[tkn], ctx.author.guild.id)
     else: 
         if tknsl: 
-            await ctx.send('**Updated Channel(s):**\n'+'\n'.join([ch_tokens[i].capitalize()+' --> <#'+tknsl[i]+'>' for i in tknsl]))
+            await ctx.send('**Updated Channel(s):**\n'+'\n'.join(["`"+ch_tokens[i].capitalize().ljust(7)+'` --> <#'+tknsl[i]+'>' for i in tknsl]))
         else:
             if arg: await ctx.send('**Error:** Invalid Input. !!!')
         if it: await ctx.send(f'**Invalid token(s):** {", ".join(it)}')
@@ -217,7 +216,10 @@ async def foo(ctx, error):
     elif isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invalid Channel(s).')
 
-@setup.command(aliases = ['rl'])
+@setup.command(
+    aliases = ['rl'],
+    help = "TO initialize the roles for given role's tokens."
+)
 @commands.has_permissions(administrator=True)
 async def role(ctx, *, arg):
     tknsl = arg.split()
@@ -230,7 +232,7 @@ async def role(ctx, *, arg):
             update('servers', rl_tokens[tkn], tknsl[tkn], ctx.author.guild.id)
     else: 
         if tknsl: 
-            await ctx.send('**Updated Role(s): **\n'+'\n'.join([rl_tokens[i].capitalize()+' --> <@&'+tknsl[i]+'>' for i in tknsl]))
+            await ctx.send('**Updated Role(s): **\n'+'\n'.join(["`"+rl_tokens[i].capitalize().ljust(6)+'` --> <@&'+tknsl[i]+'>' for i in tknsl]))
         else:
             await ctx.send('**Error:** Invalid Input. !!!')
         if it: await ctx.send(f'**Invalid token(s):** {", ".join(it)}')
@@ -241,9 +243,12 @@ async def foo(ctx, error):
     elif isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invalid role(s).')
 
-@setup.command(aliases = ['clan', 'clan_tag'])
+@setup.command(
+    aliases = ['tag', 'clan_tag', 'clantag'],
+    help = "TO link the clan to this server using clan's tag."
+)
 @commands.has_permissions(administrator=True)
-async def tag(ctx, tag: str):
+async def clan(ctx, tag: str):
     if tag[0] == '#':
         if await client.get_clan(tag) and not tag in saved_clan_tag():
             update('servers', 'clan_tag', tag, ctx.guild.id)
@@ -252,14 +257,17 @@ async def tag(ctx, tag: str):
             await ctx.send('**Clan tag is Invalid or Already used by a Server.**')
     else:
         await ctx.send('**Error:** Clan tag must be starts with "#"')
-@tag.error
+@clan.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invaild clan tag !!!')
     elif isinstance(error, commands.errors.MissingRequiredArgument):
         await ctx.send('**Error:** Clan tag not found.')
 
-@setup.command(aliases = ['edit'])
+@setup.command(
+    aliases = ['edit'],
+    help = "TO initialize the channels or roles for its respective tokens."
+)
 @commands.has_permissions(administrator=True)
 async def all(ctx, *, arg):
     tknsl, rl, ch, it = arg.split(), tuple(), tuple(), tuple()
@@ -286,14 +294,17 @@ async def on_ready():
 
 @bot.event    
 async def on_message(message: discord.Message):
+    ctx: commands.Context = await bot.get_context(message)
     cntl = message.content.split()
-    if len(cntl) in [2, 3] and cntl[0][2:-1] == str(bot.user.id) and (cntl[1].lower() in ['prefix', 'set', 'set_prefix', 'setprefix']):
+    if len(cntl) in [2, 3] and cntl[0][3:-1] == str(bot.user.id) and (cntl[1].lower() in ['prefix', 'set', 'set_prefix', 'setprefix']):
         if len(cntl) == 2: cntl.append('')
         if append('prefixes', [message.guild.id, cntl[2]]): 
-            await message.channel.send(f'Prefix changed to `{(lambda para: None if not para else para)(cntl[2])}`')
+            await message.channel.send(f'New prefix is: `{(lambda para: None if not para else para)(cntl[2])}`')
         else: 
             update('prefixes', 'prefix', cntl[2], message.guild.id)
-            await message.channel.send(f'Prefix changed to `{(lambda para: None if not para else para)(cntl[2])}`')
+            await message.channel.send(f'Prefix changed to: `{(lambda para: None if not para else para)(cntl[2])}`')
+    elif len(cntl) == 3 and cntl[0][3:-1] == str(bot.user.id) and cntl[1] in ['show'] and cntl[2] == 'prefix':
+        await message.channel.send(bot.user.mention+ ' prefix is '+ f"`{get_prefix(bot, message)}`")
     else: await bot.process_commands(message)     
 
 @bot.event
@@ -319,7 +330,7 @@ If you are interested to join our clan do the following:
 
 async def cocev():
     @client.event
-    @coc.ClanEvents.member_role(tags=[tag for tag in saved_clan_tag() if not tag == None])
+    @coc.ClanEvents.member_role(tags=[tag for tag in saved_clan_tag()  if not tag == None])
     async def on_role_updates(old_player, new_player):
         if saved_guild([new_player.clan.tag]):
             timap = links(saved_guild([new_player.clan.tag]).id)
@@ -393,15 +404,16 @@ async def cocev():
 
 @bot.command()
 async def help(ctx: commands.Context, *, command = None):
-    cmd_names = [command.name for command in bot.commands]
+    omc = [('prefix', 'set', 'set_prefix', 'setprefix'), ('show')]
+    cmd = bot.get_command(command.lower()) if command else None 
     help_embed = discord.Embed(
-        title = '**HELP COMMAND**' if command == None else command.upper() if bot.get_command(command.lower()) in bot.commands else 'COMMAND NOT FOUND !!!',
+        title = ((cmd.parent.name.upper()+' ' if cmd.parent else '')+cmd.name.upper() if cmd else (('PREFIX' if command.lower() in omc[0] else 'SHOW') if command.lower() in omc[0]+omc[1] else 'COMMAND NOT FOUND !!!')) if command else '**HELP COMMAND**',
         color = ctx.author.color
     )
     if not command:
         help_embed.add_field(
             name="**List of supported commands:**",
-            value='```\n'+f'1. <mention_bot>prefix [new_prefix]\n'+"\n".join([f'{i+2}. {ctx.prefix + x.name} {x.signature}' for i, x in enumerate(bot.commands)])+'\n```',
+            value='```\n'+f"1. {{mention_bot}} prefix [new_prefix]\n2. {{menton_bot}} show prefix\n"+"\n".join([f'{i+3}. {ctx.prefix + x.name} {"(channel|role|clan)" if x.name == "setup" else x.signature}' for i, x in enumerate(bot.commands)])+'\n```',
             inline=False
         )
         help_embed.add_field(
@@ -409,50 +421,123 @@ async def help(ctx: commands.Context, *, command = None):
             value=f"Type `{ctx.prefix}help [command name]` for more details about each command.",
             inline=False
         )
-    elif bot.get_command(command.lower()) in bot.commands:
-        cmd = bot.get_command(command.lower())
-        if command.lower() == 'setup':
-            ct = '''
-abc
-                 '''
+    elif cmd:
+        if cmd.name == 'setup':
             help_embed.add_field(
-                name=f'**{ctx.prefix}<channel|ch> **',
-                value=ct,
+                name='***Descripton:***',
+                value='''
+This command is used for initializing your server's channels & roles and a clan's tag so to make me work properly on your server.
+This makes me to know where and on what I have to respond on and altogether make your task easy.
+                      ''',
+                inline=False
             )
-            ch = 'abc'
             help_embed.add_field(
-                name='**Channels**',
-                value=ch,
+                name='**Tokens**:',
+                value='''
+These gives me meaning to given clan's tag, channel or role.
+```There are two types of tokens:
+Channel Tokens:
+
+-fd : feed
+    *Use this channel as feed channel.
+-wel : welcome
+    *Assign this channel to send a welcome message for a new joiner.
+-wtg : waiting
+    *Add those members to this channel who have the role i.e attached to -w token.
+-hlp : help
+    *Assign this channel as a help channel.
+
+Role Tokens:
+-l : leader
+    *Use this role as leader of the given clan.
+-c : co-leader
+    *Use this role as co-leader of the given clan.
+-e : elder
+    *Use this role as elder of the given clan.
+-m : member
+    *Use this role as member of the given clan.
+-w : wrole
+    *This role makes me know the members who are in waiting list.
+-n : new
+    *Assign this role to new joiner.```
+                      ''',
+                inline=False
             )
-            rl = 'abc'
             help_embed.add_field(
-                name='**Roles**',
-                value=rl,
-            )
-            usg = '''
-abc
-                  '''
-            help_embed.add_field(
-                name='**Usage**',
-                value=usg,
+                name='Note:',
+                value='''
+\*You can use one channel/role to one token of its kind. 
+\*You can use one clan's tag per server no two or more clan's tags for one server.
+\*You can update channel/role/tag using the same commands.
+                      ''',
                 inline=False
             )
         else:
             help_embed.add_field(
                 name='Usage:',
-                value='`'+str(cmd.help)+'`',
+                value='```'+str(cmd.help)+'```',
                 inline=False
             )
-            cn = lambda x: f'<{x.name}>' if not len(x.aliases) else f'<{x.name+"|"+"|".join(x.aliases)}>'
+            ms = {
+                'channel': '<#channel> <-token> ...',
+                'role': '<@role> <-token> ...', 
+                'clan': '<#clan_tag> <-token> ...', 
+                'all': '<#clan_tag| @role| #channel> <-token> ...'
+            }
+            signature = ms[cmd.name] if cmd.name in['channel', 'role', 'clan', 'all'] else cmd.signature
             help_embed.add_field(
                 name='Syntex:',
-                value=f'`{ctx.prefix+cn(cmd)} {cmd.signature}`',
+                value=f'`{ctx.prefix+cmd.name} {signature}`',
                 inline=False
             )
+            if cmd.aliases:
+                help_embed.add_field(
+                    name='Aliases:',
+                    value=f"`{', '.join(cmd.aliases[:-1])}{' & '+cmd.aliases[-1] if cmd.aliases[:-1] else cmd.aliases[-1]}`",
+                    inline=False
+                )
+    elif command.lower() in omc[0]+omc[1] :
+        if command.lower() in omc[0]:
+            help_embed.add_field(
+                name='Usage:',
+                value='`TO set a new prefix.`',
+                inline=False
+            )
+            help_embed.add_field(
+                name='Syntex:',
+                value='`{mention_bot} prefix [new_prefix]`',
+                inline=False
+            )
+            help_embed.add_field(
+                name='Aliases:',
+                value='`set, set_prefix & setprefix`',
+                inline=False
+            )
+        elif command.lower() in omc[1]:
+            help_embed.add_field(
+                name='Usage:',
+                value='`TO set a new prefix.`',
+                inline=False
+            )
+            help_embed.add_field(
+                name='Syntex:',
+                value='`{mention_bot} show prefix`',
+                inline=False
+            )
+    else:
+        help_embed.add_field(
+            name='¯\_(ツ)_/¯',
+            value='!!!!!!!!!!!!!!!!!!!!!',
+            inline=False
+        )
     help_embed.set_thumbnail(url = bot.user.avatar_url)
     help_embed.set_footer(text=f"{ctx.author.name}#{ctx.author.discriminator}", icon_url=ctx.author.avatar_url)
     await ctx.send(embed = help_embed) 
-
+    if cmd and cmd.name == 'setup':
+        await ctx.invoke(bot.get_command('help'), command = 'setup all')
+        await ctx.invoke(bot.get_command('help'), command = 'setup tag')
+        await ctx.invoke(bot.get_command('help'), command = 'setup channel')
+        await ctx.invoke(bot.get_command('help'), command = 'setup role')
 
 ''' COMMANDS '''
 
@@ -468,6 +553,12 @@ async def select(ctx, discord_member: discord.Member, player_tag):
         for role in discord_member.roles:
             if role.id == get(rl_tokens['-n'], 'servers', ctx.guild.id):
                 role = discord.utils.get(discord_member.guild.roles, id=get(rl_tokens['-w'], 'servers', ctx.guild.id))
+                if get(ch_tokens['-wtg'], 'servers', ctx.guild.id) and get(rl_tokens['-w'], 'servers', ctx.guild.id):
+                    wtgch = ctx.guild.get_channel(get(ch_tokens['-wtg'], 'servers', ctx.guild.id))
+                    await wtgch.set_permissions(role, read_messages=True)
+                else:
+                    ctx.send('**Error:** You have not assigned either waiting channel or role.')
+                    return
                 r2 = discord.utils.get(discord_member.guild.roles, id=get(rl_tokens['-n'], 'servers', ctx.guild.id))
                 th = player.town_hall
                 await discord_member.edit(nick = f'[TH{th}] {player.name}')
@@ -487,7 +578,7 @@ Till than checkout our channel make some new friends, we'll select you
 as soon as possible if any spot available in our clan.
 
 Feel free to use <#{get(ch_tokens['-hlp'], 'servers', ctx.guild.id)}> channel if you have any problem.**
-'''
+'''                 
                 await discord_member.guild.get_channel(get(ch_tokens['-wtg'], 'servers', ctx.guild.id)).send(selm)
                 await ctx.send('**Successfully Selected.**')
                 break
@@ -505,7 +596,6 @@ async def foo(ctx, error):
         await ctx.send('**Error:** Invalid Player Tag')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
-
 @bot.command(aliases = ['clean', 'erase'])
 async def clear(ctx, lines = None):
     if not lines: lines = 1 
@@ -613,18 +703,12 @@ async def foo(ctx, error):
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
     
-
 @bot.command(help = "Shows the ping/latency of the bot in miliseconds.")
 async def ping(ctx):
     await ctx.send('Pong '+ str(round(bot.latency*1000))+'ms')
 
-@bot.command(help = 'Invoke a given command by bot.')
-async def invoke(ctx, *,text = ''):
-    tokens = text.split()
-    await ctx.invoke(bot.get_command(tokens[0]), *tokens[1:])
+
 
 if __name__ == '__main__':
-    try:
-        bot.loop.create_task(cocev())
-        bot.run(os.environ['BH-BOT_Token'])
-    except coc.errors.GatewayError as e: print('MainError:', e)
+    bot.loop.create_task(cocev())
+    bot.run(os.environ['BH-BOT_Token'])
