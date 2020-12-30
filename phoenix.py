@@ -312,7 +312,6 @@ async def on_message(message: discord.Message):
             await message.channel.send(f'Prefix changed to: `{(lambda para: None if not para else para)(cntl[2])}`')
     elif len(cntl) == 3 and cntl[0][3:-1] == str(bot.user.id) and cntl[1] in ['show'] and cntl[2] == 'prefix':
         await message.channel.send(bot.user.mention+ ' prefix is '+ f"`{await get_prefix(bot, message)}`")
-    elif not message: pass
     else: await bot.process_commands(message)     
 
 @bot.event
