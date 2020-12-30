@@ -6,15 +6,15 @@ import discord
 import pymysql
 from discord.ext import commands
 
-condb = pymysql.connect(
-    host = os.environ['CLEARDB_DATABASE_URL'][32:59],
-    user = os.environ['CLEARDB_DATABASE_URL'][8:22],
-    password = os.environ['CLEARDB_DATABASE_URL'][23:31],
-    db = os.environ['CLEARDB_DATABASE_URL'][60:82],
+condb  = lambda: pymysql.connect(
+    host = os.environ['DBhost'],
+    user = os.environ['DBuser'],
+    password = os.environ['DBpass'],
+    db = os.environ['DB'],
     cursorclass=pymysql.cursors.DictCursor
 )
-def get_prefix(bot, message):
-    with condb.cursor() as cur:
+async def get_prefix(bot, message):
+    with condb().cursor() as cur:
         cur.execute("select guild_id, prefix from prefixes")
         fetch = cur.fetchall()
     for fd in fetch:
@@ -31,22 +31,24 @@ rl_tokens = {'-l': 'leader', '-c': 'co', '-e': 'elder', '-m': 'member', '-w': 'w
 
 def eject(table: str, pkid: int, mg = ''):
     try:
-        with condb.cursor() as cur:
+        con = condb()
+        with con.cursor() as cur:
             if table.lower() == 'servers' and mg == '':
                 cur.execute(f"delete from servers where guild_id = '{pkid}'")
             elif table.lower() == 'players' and mg != '':
                 cur.execute(f"delete from players where member = '{pkid}' and guild_id = '{mg}'")
     except Exception as e: print('EjectError:', e)
-    finally: condb.commit()
+    finally: con.commit()
 
 def append(table: str, data: list, column = ''):
     try:
+        con = condb()
         if type(data) in [list, tuple]:
             if column == '' and len(data) in [len(ch_tokens)+len(rl_tokens), 3, 2] :
                 val = '('
                 for i in data: val += f"'{i}', "
                 else: val = val[:-2]+')'
-                with condb.cursor() as cur:
+                with con.cursor() as cur:
                     cur.execute(f"insert into {table.lower()} values{val}")
             elif type(column) in [tuple, list] and len(column) == len(data):
                 if (table.lower() == 'servers' and len(column) <= len(ch_tokens)+len(rl_tokens)) or (table.lower() == 'players' and len(column) <= 3) or (table.lower() == 'prefixes' and len(column) <= 2):
@@ -57,7 +59,7 @@ def append(table: str, data: list, column = ''):
                     else: 
                         clm = clm[:-2]+')'
                         dt = dt[:-2]+')'
-                    with condb.cursor() as cur:
+                    with con.cursor() as cur:
                         cur.execute(f"insert into {table.lower()}{clm} values{dt}")
     except pymysql.err.IntegrityError as e: flag = False
     except Exception as e: 
@@ -65,38 +67,39 @@ def append(table: str, data: list, column = ''):
         print('AppendError:', e)
     else: flag = True
     finally:
-        condb.commit()
+        con.commit()
         return flag
 
 def update(table: str, column: str, value: str, id: str):
     try:
+        con = condb()
         if table.lower() in ['servers', 'prefixes']:
-            with condb.cursor() as cur:
+            with con.cursor() as cur:
                 cur.execute(f"UPDATE {table.lower()} SET {column} = '{value}' WHERE guild_id = '{id}'")
         elif table.lower() == 'players':
-            with condb.cursor() as cur:
+            with con.cursor() as cur:
                 cur.execute(f"UPDATE players SET {column} = '{value}' WHERE member = '{id}'")
     except Exception as e: 
         flag = False
         print('UpdateError: ', e)
     else: flag = True
     finally: 
-        condb.commit()
+        con.commit()
         return flag
 
 def get(column: str, table: str, pkid: int):
-    with condb.cursor() as cur:
+    with condb().cursor() as cur:
         if table.lower() == 'servers':
             cur.execute(f"select {column.lower()} from servers where guild_id = '{pkid}'")
         elif table.lower() == 'players':
             cur.execute(f"select {column.lower()} from players where members = '{pkid}'")
-        return (lambda x : int(x) if x.isnumeric() else str(x))(cur.fetchone()[column.lower()])
+        return (lambda x : int(x) if x.isdigit() else str(x))(cur.fetchone()[column.lower()])
 
 def links(server_id : int, t2m = True):
     try:
         mapin = dict()
         guild = bot.get_guild(server_id)
-        with condb.cursor() as cur:
+        with condb().cursor() as cur:
             cur.execute(f"select player_tag, member from players where guild_id = '{server_id}'")
             ld = cur.fetchall()
             if t2m:
@@ -111,7 +114,7 @@ def links(server_id : int, t2m = True):
 def saved_guild(clan_tag = tuple()): 
     try:
         guilds = list()
-        with condb.cursor() as cur:
+        with condb().cursor() as cur:
             if clan_tag == ():
                 cur.execute("select guild_id from servers")
             elif type(clan_tag) in [tuple, list]:
@@ -129,7 +132,7 @@ def saved_guild(clan_tag = tuple()):
 def saved_clan_tag(guild_id = tuple()):
     try:
         clans = list()
-        with condb.cursor() as cur:
+        with condb().cursor() as cur:
             if guild_id == ():
                 cur.execute('select clan_tag from servers')
             elif type(guild_id) in [tuple, list]:
@@ -148,7 +151,7 @@ def clan_roles(roles):
     try:
         rval = tuple()
         if len(roles) == 1 and roles[0] == "*":
-            with condb.cursor() as cur:
+            with condb().cursor() as cur:
                 cur.execute('select leader, co, elder, member from servers')
                 fl = cur.fetchall()
                 for dic in fl:
@@ -161,14 +164,14 @@ def clan_roles(roles):
                     if dic['member']:
                         rval += int(dic['member']),
         elif roles[0] != '*' and len(roles) == 1:
-            with condb.cursor() as cur:
+            with condb().cursor() as cur:
                 cur.execute(f"select {roles[0]} from servers")
                 val = int(cur.fetchone()[roles[0]])
                 for guild in bot.guilds:
                     if val in [role.id for role in guild.roles]: 
                         return guild.get_role(val)
         elif len(roles) > 1:
-            with condb.cursor() as cur:
+            with condb().cursor() as cur:
                 clms = roles[0]
                 for i in roles[1:]: clms += f', {i}'
                 cur.execute(f"select {clms} from servers")
@@ -292,9 +295,13 @@ async def on_ready():
     await bot.change_presence( activity = discord.Activity(name = 'BraZZerS', type = discord.ActivityType.watching))
     print('Bot is ready...')
 
+@bot.event
+async def on_command_error(ctx, error):
+    if isinstance(error, commands.errors.CommandNotFound): return
+    raise error
+
 @bot.event    
 async def on_message(message: discord.Message):
-    ctx: commands.Context = await bot.get_context(message)
     cntl = message.content.split()
     if len(cntl) in [2, 3] and cntl[0][3:-1] == str(bot.user.id) and (cntl[1].lower() in ['prefix', 'set', 'set_prefix', 'setprefix']):
         if len(cntl) == 2: cntl.append('')
@@ -304,7 +311,8 @@ async def on_message(message: discord.Message):
             update('prefixes', 'prefix', cntl[2], message.guild.id)
             await message.channel.send(f'Prefix changed to: `{(lambda para: None if not para else para)(cntl[2])}`')
     elif len(cntl) == 3 and cntl[0][3:-1] == str(bot.user.id) and cntl[1] in ['show'] and cntl[2] == 'prefix':
-        await message.channel.send(bot.user.mention+ ' prefix is '+ f"`{get_prefix(bot, message)}`")
+        await message.channel.send(bot.user.mention+ ' prefix is '+ f"`{await get_prefix(bot, message)}`")
+    elif not message: pass
     else: await bot.process_commands(message)     
 
 @bot.event
@@ -332,6 +340,7 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_role(tags=[tag for tag in saved_clan_tag()  if not tag == None])
     async def on_role_updates(old_player, new_player):
+        print(1)
         if saved_guild([new_player.clan.tag]):
             timap = links(saved_guild([new_player.clan.tag]).id)
         else: return
@@ -356,6 +365,7 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_join(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def foo(player, clan):
+        print(2)
         if saved_guild([clan.tag]):
             timap = links(saved_guild([clan.tag]).id)
         else: return
@@ -386,6 +396,7 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_name(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def foo(old_player, new_player):
+        print(3)
         if saved_guild([new_player.clan.tag]):
             ti = links(saved_guild([new_player.clan.tag]).id)
         else: return
@@ -404,10 +415,10 @@ async def cocev():
 
 @bot.command()
 async def help(ctx: commands.Context, *, command = None):
-    omc = [('prefix', 'set', 'set_prefix', 'setprefix'), ('show')]
-    cmd = bot.get_command(command.lower()) if command else None 
+    omc = [('prefix', 'set', 'set_prefix', 'setprefix'), ('show',)]
+    cmd = bot.get_command(str(command).lower())
     help_embed = discord.Embed(
-        title = ((cmd.parent.name.upper()+' ' if cmd.parent else '')+cmd.name.upper() if cmd else (('PREFIX' if command.lower() in omc[0] else 'SHOW') if command.lower() in omc[0]+omc[1] else 'COMMAND NOT FOUND !!!')) if command else '**HELP COMMAND**',
+        title = (((cmd.parent.name.upper()+' ' if cmd.parent else '')+cmd.name.upper()) if cmd else (('PREFIX' if command.lower() in omc[0] else 'SHOW') if command.lower() in (omc[0]+omc[1]) else 'COMMAND NOT FOUND !!!')) if command else '**HELP COMMAND**',
         color = ctx.author.color
     )
     if not command:
@@ -435,9 +446,10 @@ This makes me to know where and on what I have to respond on and altogether make
                 name='**Tokens**:',
                 value='''
 These gives me meaning to given clan's tag, channel or role.
-```There are two types of tokens:
-Channel Tokens:
+```
+There are two types of tokens:
 
+Channel Tokens:
 -fd : feed
     *Use this channel as feed channel.
 -wel : welcome
@@ -516,7 +528,7 @@ Role Tokens:
         elif command.lower() in omc[1]:
             help_embed.add_field(
                 name='Usage:',
-                value='`TO set a new prefix.`',
+                value='`To show bot\'s prefix.`',
                 inline=False
             )
             help_embed.add_field(
@@ -527,7 +539,7 @@ Role Tokens:
     else:
         help_embed.add_field(
             name='¯\_(ツ)_/¯',
-            value='!!!!!!!!!!!!!!!!!!!!!',
+            value='**!!!!!!!!!!!!!!!!!**',
             inline=False
         )
     help_embed.set_thumbnail(url = bot.user.avatar_url)
@@ -597,8 +609,8 @@ async def foo(ctx, error):
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 @bot.command(aliases = ['clean', 'erase'])
-async def clear(ctx, lines = None):
-    if not lines: lines = 1 
+async def clear(ctx, lines:str = None):
+    lines = 1 if not lines else (int(lines) if lines.isdigit() else 0)
     run = False
     for mr in ctx.author.roles:
         if mr.id in clan_roles(list(rl_tokens.values())[:2]):
