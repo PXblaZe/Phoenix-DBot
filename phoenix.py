@@ -13,7 +13,7 @@ condb  = lambda: pymysql.connect(
     db = os.environ['DB'],
     cursorclass=pymysql.cursors.DictCursor
 )
-def get_prefix(bot, message):
+async def get_prefix(bot, message):
     with condb().cursor() as cur:
         cur.execute("select guild_id, prefix from prefixes")
         fetch = cur.fetchall()
@@ -311,7 +311,7 @@ async def on_message(message: discord.Message):
             update('prefixes', 'prefix', cntl[2], message.guild.id)
             await message.channel.send(f'Prefix changed to: `{(lambda para: None if not para else para)(cntl[2])}`')
     elif len(cntl) == 3 and cntl[0][3:-1] == str(bot.user.id) and cntl[1] in ['show'] and cntl[2] == 'prefix':
-        await message.channel.send(bot.user.mention+ ' prefix is '+ f"`{get_prefix(bot, message)}`")
+        await message.channel.send(bot.user.mention+ ' prefix is '+ f"`{await get_prefix(bot, message)}`")
     else: await bot.process_commands(message)     
 
 @bot.event
@@ -722,4 +722,4 @@ async def ping(ctx):
 
 if __name__ == '__main__':
     bot.loop.create_task(cocev())
-    bot.run(os.environ['BH-BOT_Token'])
+    bot.run(os.environ['PX_token'])
