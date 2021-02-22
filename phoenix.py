@@ -260,7 +260,7 @@ async def clan(ctx, tag: str):
             if toct: client.remove_clan_updates(*[toct]) 
             client.add_clan_updates(*[tag])
             await ctx.send('**Done**')
-            bot.restart()
+            bot.loop.restart()
         else:
             await ctx.send('**Clan tag is Invalid or Already used by a Server.**')
     else:
