@@ -254,7 +254,11 @@ async def foo(ctx, error):
 async def clan(ctx, tag: str):
     if tag[0] == '#':
         if await client.get_clan(tag) and not tag in saved_clan_tag():
+            tags = saved_clan_tag()
+            toct = saved_clan_tag([ctx.guild.id])
             update('servers', 'clan_tag', tag, ctx.guild.id)
+            if toct: client.remove_clan_updates(*[toct]) 
+            client.add_clan_updates(*[tag])
             await ctx.send('**Done**')
         else:
             await ctx.send('**Clan tag is Invalid or Already used by a Server.**')
