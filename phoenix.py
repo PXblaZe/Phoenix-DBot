@@ -4,7 +4,7 @@ import os
 import coc
 import discord
 import pymysql
-from discord.ext import commands, tasks
+from discord.ext import commands
 
 condb  = lambda: pymysql.connect(
     host = os.environ['DBhost'],
@@ -260,19 +260,18 @@ async def clan(ctx, tag: str):
             if toct: client.remove_clan_updates(*[toct]) 
             client.add_clan_updates(*[tag])
             await ctx.send('**Done**')
-            tasks.restart()
+            bot.restart()
         else:
             await ctx.send('**Clan tag is Invalid or Already used by a Server.**')
     else:
         await ctx.send('**Error:** Clan tag must be starts with "#"')
-'''
 @clan.error
 async def foo(ctx, error):
     if isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Invaild clan tag !!!')
     elif isinstance(error, commands.errors.MissingRequiredArgument):
         await ctx.send('**Error:** Clan tag not found.')
-'''
+
 @setup.command(
     aliases = ['edit'],
     help = "TO initialize the channels or roles for its respective tokens."
