@@ -4,7 +4,7 @@ import os
 import coc
 import discord
 import pymysql
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 condb  = lambda: pymysql.connect(
     host = os.environ['DBhost'],
@@ -260,6 +260,7 @@ async def clan(ctx, tag: str):
             if toct: client.remove_clan_updates(*[toct]) 
             client.add_clan_updates(*[tag])
             await ctx.send('**Done**')
+            tasks.restart()
         else:
             await ctx.send('**Clan tag is Invalid or Already used by a Server.**')
     else:
