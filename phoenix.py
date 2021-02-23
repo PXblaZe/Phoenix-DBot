@@ -83,7 +83,7 @@ def update(table: str, column: str, value: str, id: str):
         flag = False
         print('UpdateError: ', e)
     else: flag = True
-    finally: 
+    finally:
         con.commit()
         return flag
 
@@ -257,7 +257,7 @@ async def clan(ctx, tag: str):
             tags = saved_clan_tag()
             toct = saved_clan_tag([ctx.guild.id])
             update('servers', 'clan_tag', tag, ctx.guild.id)
-            if toct: client.remove_clan_updates(*[toct]) 
+            if toct: client.remove_clan_updates(*[toct]) #discord.exit.tasks
             client.add_clan_updates(*[tag])
             await ctx.send('**Done**')
             cocev.restart()
@@ -339,7 +339,8 @@ If you are interested to join our clan do the following:
 
 
 ''' COC EVENTS '''
-tasks.loop(seconds = 5)
+
+@tasks.loop(seconds=5)
 async def cocev():
     @client.event
     @coc.ClanEvents.member_role(tags=[tag for tag in saved_clan_tag()  if not tag == None])
@@ -368,7 +369,7 @@ async def cocev():
     
     @client.event
     @coc.ClanEvents.member_join(tags=[tag for tag in saved_clan_tag() if not tag == None])
-    async def foo(player, clan):
+    async def on_member_join(player, clan):
         print(2)
         if saved_guild([clan.tag]):
             timap = links(saved_guild([clan.tag]).id)
@@ -399,7 +400,7 @@ async def cocev():
             
     @client.event
     @coc.ClanEvents.member_name(tags=[tag for tag in saved_clan_tag() if not tag == None])
-    async def foo(old_player, new_player):
+    async def on_member_name_change(old_player, new_player):
         print(3)
         if saved_guild([new_player.clan.tag]):
             ti = links(saved_guild([new_player.clan.tag]).id)
@@ -612,6 +613,7 @@ async def foo(ctx, error):
         await ctx.send('**Error:** Invalid Player Tag')
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
+        
 @bot.command(aliases = ['clean', 'erase'])
 async def clear(ctx, lines:str = None):
     lines = 1 if not lines else (int(lines) if lines.isdigit() else 0)
@@ -658,7 +660,7 @@ async def clan(ctx, clan_tag):
         title = nm,
         description = det,
         color = discord.Color.dark_red(),
-        url = f'https://www.clashofstats.com/clans/{coscn}-{str(cln.tag)[1:].upper()}/summary'
+        url = f'https://www.clashofstats.com/clans/{"-".join(cln.name.split())}-{str(cln.tag)[1:].upper()}/summary'
     )
     embed.set_thumbnail(url = bdg)
     await ctx.send(embed = embed)
@@ -704,7 +706,7 @@ async def accept(ctx, member: discord.Member):
                 clan = await client.get_clan(saved_clan_tag([ctx.guild.id]))
                 accE = discord.Embed(
                     title = f'**{ctx.guild.name}**',
-                    description = f"\nHey {member.mention},\n\n**You are shortlisted to be a member of our Clan !!!**\n\nYou will have invite send from our clan if not\njust ask it with the screenshot of this message\nin {member.guild.get_channel(get(ch_tokens['-hlp'], 'servers', ctx.author.guild.id)).mention} channel of our discord server." ,
+                    description = f"Hey {member.mention},\n\n**You are shortlisted to be a member of our Clan !!!**\n\nYou will have invite send from our clan if not\njust ask it with the screenshot of this message\nin {member.guild.get_channel(get(ch_tokens['-hlp'], 'servers', ctx.author.guild.id)).mention} channel of our discord server." ,
                     url = clan.share_link      
                 )
                 await member.send(embed=accE)
@@ -723,9 +725,35 @@ async def foo(ctx, error):
 async def ping(ctx):
     await ctx.send('Pong '+ str(round(bot.latency*1000))+'ms')
 
-
+@bot.command()
+async def code(ctx: commands.Context, *, asydef: str):
+    if ctx.author.id == 756076378415300648:
+        f = open('phoenix.py', 'r')
+        lines = f.readlines()
+        fl = []
+        for i in range(len(lines)):
+            if asydef.lower().startswith('ce') and lines[i] == "''' COC EVENTS '''\n":
+                j = i+1
+                while True:
+                    j+=1
+                    if lines[j].startswith(f'    async def {asydef.split()[1]}'): break
+                while True: 
+                    fl.append(lines[j][4:])
+                    j+=1
+                    if lines[j].startswith('    @') or lines[j].startswith("'''"): break
+                break
+            elif asydef.lower().startswith('def'):
+                if lines[i].startswith(f'async def {asydef.split()[1]}'):
+                    j = i+1
+                    while True: 
+                        fl.append(lines[j])
+                        j+=1
+                        if lines[j].startswith('@') or lines[j] == "'''": break
+                    break
+                else: continue
+        await ctx.send('```py\n'+'\n'.join(fl)+'\n```')
 
 if __name__ == '__main__':
-    bot.loop.create_task(cocev())
+#    bot.loop.create_task(cocev())
     cocev.start()
-    bot.run(os.environ['PX_token'])
+    bot.run(os.environ['BH-BOT_token'])
