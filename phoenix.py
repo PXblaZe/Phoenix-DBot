@@ -4,7 +4,7 @@ import os
 import coc
 import discord
 import pymysql
-from discord.ext import commands
+from discord.ext import commands, tasks
 
 condb  = lambda: pymysql.connect(
     host = os.environ['DBhost'],
