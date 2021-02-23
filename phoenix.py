@@ -727,4 +727,5 @@ async def ping(ctx):
 
 if __name__ == '__main__':
     bot.loop.create_task(cocev())
+    cocev.start()
     bot.run(os.environ['PX_token'])
