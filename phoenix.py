@@ -339,7 +339,7 @@ If you are interested to join our clan do the following:
 
 
 ''' COC EVENTS '''
-
+tasks.loop(seconds = 5)
 async def cocev():
     @client.event
     @coc.ClanEvents.member_role(tags=[tag for tag in saved_clan_tag()  if not tag == None])
