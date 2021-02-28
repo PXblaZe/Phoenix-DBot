@@ -2,6 +2,7 @@
 #show command is under develpoment.
 import os
 import coc
+import json
 import discord
 import pymysql
 from discord.ext import commands, tasks
@@ -27,7 +28,7 @@ ch_tokens = {'-fd': 'feed', '-wel': 'welcome', '-wtg': 'waiting', '-hlp': 'help'
 rl_tokens = {'-l': 'leader', '-c': 'co', '-e': 'elder', '-m': 'member', '-w': 'wrole', '-n': 'new'}
 
 
-'''DataBase'''
+''' DataBase '''
 
 def eject(table: str, pkid: int, mg = ''):
     try:
@@ -51,7 +52,7 @@ def append(table: str, data: list, column = ''):
                 with con.cursor() as cur:
                     cur.execute(f"insert into {table.lower()} values{val}")
             elif type(column) in [tuple, list] and len(column) == len(data):
-                if (table.lower() == 'servers' and len(column) <= len(ch_tokens)+len(rl_tokens)) or (table.lower() == 'players' and len(column) <= 3) or (table.lower() == 'prefixes' and len(column) <= 2):
+                if (table.lower() == 'servers' and len(column) <= len(ch_tokens)+len(rl_tokens)) or (table.lower() == 'players' and len(column) <= 3) or (table.lower() == 'prefixes' and len(column) <= 2) or (table.lower() == 'textdata' and len(column) <= 2):
                     clm = dt = '('
                     for i in range(len(data)):
                         clm += f"{column[i]}, "
@@ -184,14 +185,23 @@ def clan_roles(roles):
         return rval
     except Exception as e: print('ClanRolesError:', e)
 
+def text(guild_id: int, key: str):
+    if key.lower() in ('welcome', 'accept', 'select'):
+        with condb().cursor() as cur:
+            cur.execute(f"select json_extract(jsondata, '$.{key.lower()}') as `{key.lower()}` from textdata where guild_id = '{guild_id}'")
+            dictline = cur.fetchone()
+        return '\n'.join(json.loads(dictline[key.lower()]))
 
-'''SetUp Commands'''
+
+
+''' SetUp Commands '''
 
 @bot.group()
 @commands.has_permissions(administrator=True)
 async def setup(ctx):
-    if not ctx.author.guild in saved_guild():
-        append(table='servers', column=['guild_id'], data=[ctx.author.guild.id])
+    if not ctx.guild in saved_guild():
+        append(table='servers', column=['guild_id'], data=[ctx.guild.id])
+        append(table='textdata', column=['guild_id'], data=[ctx.guild.id])
 @setup.command(
     aliases = ['ch'],
     help = "TO initialize the channels for a given channel's tokens."
@@ -293,7 +303,7 @@ async def foo(ctx, error):
     elif isinstance(error, commands.errors.CommandInvokeError):
         await ctx.send('**Error:** Either role(s) or channel(s) is Invalid.')
 
-'''Discord EVENTS '''
+'''Discord Events '''
 
 @bot.event
 async def on_ready():
@@ -321,18 +331,7 @@ async def on_message(message: discord.Message):
 
 @bot.event
 async def on_member_join(new : discord.Member):
-    wlcmsg = f'''Hey {new.mention}, WelCome to **{new.guild.name}** !
-**
-We only accept <:th10:769275244262588437>TH10, <:th11:769275245152043048>TH11, <:th12:769291986221924412>TH12 and <:th13:769292071692795966>TH13 !
-
-If you are interested to join our clan do the following:
-
-1.** Send a screenshot of your in game profile, with your player tag visible.
-**2.** Send your player tag in text form. 
-**3.** Send a screenshot of your base. It must be in a war base slot.
-**4.** Wait for an answer from one of the staff.
-
-*If you need any help ask it in <#{get(ch_tokens['-hlp'], 'servers', new.guild.id)}> channel.* :slight_smile:'''
+    wlcmsg = text(new.guild.id, 'welcome').format(user = new.mention)
     role = discord.utils.get(new.guild.roles, id = get(rl_tokens['-n'], 'servers', new.guild.id))
     await new.add_roles(role)
     await new.guild.get_channel(get(ch_tokens['-wel'], 'servers', new.guild.id)).send(wlcmsg)
@@ -582,20 +581,7 @@ async def select(ctx, discord_member: discord.Member, player_tag):
                 append('players', [discord_member.id, player_tag, ctx.guild.id])
                 await discord_member.add_roles(role)
                 await discord_member.remove_roles(r2)
-                selm = f'''
-Hey {discord_member.mention}, **Your base is selected !!!
-
-You are now in waiting list, if we don't have spot in our clan.
-
-We will dm you a shortlist message if you will be accepted by,
-
-<@&{get(rl_tokens['-l'], 'servers', ctx.guild.id)}>, <@&{get(rl_tokens['-c'], 'servers', ctx.guild.id)}> or <@&{get(rl_tokens['-e'], 'servers', ctx.guild.id)}> of our clan.
-
-Till than checkout our channel make some new friends, we'll select you 
-as soon as possible if any spot available in our clan.
-
-Feel free to use <#{get(ch_tokens['-hlp'], 'servers', ctx.guild.id)}> channel if you have any problem.**
-'''                 
+                selm = text(ctx.guild.id, 'select').format(user = discord_member.mention)     
                 await discord_member.guild.get_channel(get(ch_tokens['-wtg'], 'servers', ctx.guild.id)).send(selm)
                 await ctx.send('**Successfully Selected.**')
                 break
@@ -673,7 +659,10 @@ async def foo(ctx, error):
     elif isinstance(error, Exception):
         await ctx.send(f'**Error:** {error}')
 
-@bot.command(aliases = ['remove'], help = 'Used to kick a member from server and erase his/her data.')
+@bot.command(
+    aliases = ['remove'],
+    help = 'Used to kick a member from server and erase his/her data.'
+)
 async def kick(ctx, member : discord.Member, *, reason = ''):
     run = False
     for mr in ctx.author.roles:
@@ -706,7 +695,7 @@ async def accept(ctx, member: discord.Member):
                 clan = await client.get_clan(saved_clan_tag([ctx.guild.id]))
                 accE = discord.Embed(
                     title = f'**{ctx.guild.name}**',
-                    description = f"Hey {member.mention},\n\n**You are shortlisted to be a member of our Clan !!!**\n\nYou will have invite send from our clan if not\njust ask it with the screenshot of this message\nin {member.guild.get_channel(get(ch_tokens['-hlp'], 'servers', ctx.author.guild.id)).mention} channel of our discord server." ,
+                    description = text(ctx.guild.id, 'accept').format(user = member.mention),
                     url = clan.share_link      
                 )
                 await member.send(embed=accE)
@@ -728,32 +717,48 @@ async def ping(ctx):
 @bot.command()
 async def code(ctx: commands.Context, *, asydef: str):
     if ctx.author.id == 756076378415300648:
-        f = open('phoenix.py', 'r')
-        lines = f.readlines()
-        fl = []
-        for i in range(len(lines)):
-            if asydef.lower().startswith('ce') and lines[i] == "''' COC EVENTS '''\n":
-                j = i+1
-                while True:
-                    j+=1
-                    if lines[j].startswith(f'    async def {asydef.split()[1]}'): break
-                while True: 
-                    fl.append(lines[j][4:])
-                    j+=1
-                    if lines[j].startswith('    @') or lines[j].startswith("'''"): break
-                break
-            elif asydef.lower().startswith('def'):
-                if lines[i].startswith(f'async def {asydef.split()[1]}'):
+        with open('phoenix.py', 'r') as f:
+            lines = f.readlines()
+            fl = []
+            for i in range(len(lines)):
+                if asydef.lower().split()[0] == 'ec' and lines[i] == "''' COC EVENTS '''\n":
                     j = i+1
+                    while True:
+                        j+=1
+                        if lines[j].startswith(f'    async def {asydef.split()[1]}'): break
+                    while True: 
+                        fl.append(lines[j][4:])
+                        j+=1
+                        if lines[j].startswith('    @') or lines[j].startswith("'''"): break
+                    break
+                elif asydef.lower().split()[0] == 'cmd'and lines[i] == "''' COMMANDS '''\n":
+                    j = i+1
+                    while True:
+                        j+=1
+                        if lines[j].startswith(f'async def {asydef.split()[1]}'): break
+                    while lines[j-1].startswith("@"): j-=1
                     while True: 
                         fl.append(lines[j])
                         j+=1
-                        if lines[j].startswith('@') or lines[j] == "'''": break
+                        if lines[j] == f'@{asydef.lower().split()[1]}.error\n' or lines[j].startswith("if"): break
                     break
-                else: continue
-        await ctx.send('```py\n'+'\n'.join(fl)+'\n```')
+                elif asydef.lower().split()[0] == 'hc' and lines[i] == "''' HELP COMMAND '''\n":
+                    j = i+2
+                    while True: 
+                        fl.append(lines[j])
+                        j+=1
+                        if lines[j] == "''' COMMANDS '''\n": break
+                    break
+                elif asydef.lower().split()[0] == 'dc' and lines[i] == "'''Discord Events '''\n":
+                    pass
+                elif asydef.lower().split()[0] == 'db' and lines[i] == "''' DataBase '''\n":
+                    pass
+                elif asydef.lower().split()[0] == 'sc' and lines[i] == "''' SetUp Commands '''\n":
+                    pass
+            print(''.join(fl))
+            await ctx.send('```py\n'+''.join(fl)+'\n```')
 
 if __name__ == '__main__':
 #    bot.loop.create_task(cocev())
     cocev.start()
-    bot.run(os.environ['PX_token'])
+    bot.run(os.environ['BH-BOT_token'])
