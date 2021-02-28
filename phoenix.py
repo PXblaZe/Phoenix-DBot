@@ -339,7 +339,7 @@ async def on_member_join(new : discord.Member):
 
 ''' COC EVENTS '''
 
-@tasks.loop(seconds=5)
+@tasks.loop(count = None)
 async def cocev():
     @client.event
     @coc.ClanEvents.member_role(tags=[tag for tag in saved_clan_tag()  if not tag == None])
