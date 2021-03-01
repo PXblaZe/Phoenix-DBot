@@ -82,7 +82,21 @@ def update(table: str, column: str, value: str, id: str):
                 cur.execute(f"UPDATE players SET {column} = '{value}' WHERE member = '{id}'")
     except Exception as e: 
         flag = False
-        print('UpdateError: ', e)
+        print('UpdateError:', e)
+    else: flag = True
+    finally:
+        con.commit()
+        return flag
+
+def dumptext(guild_id: int, key: str, json_array):
+    try:
+        if key.lower() in ('welcome', 'accept', 'select'):
+            con = condb()
+            with con.cursor() as cur:
+                cur.execute(f'UPDATE textdata SET jsondata = json_set(jsondata, "$.{key.lower()}", json_array{str(json_array).replace("[", "(").replace("]", ")")}) where guild_id = "{guild_id}"')
+    except Exception as e:
+        flag = False
+        print("DumpTextError:", e)
     else: flag = True
     finally:
         con.commit()
@@ -193,7 +207,6 @@ def text(guild_id: int, key: str):
         return '\n'.join(json.loads(dictline[key.lower()]))
 
 
-
 ''' SetUp Commands '''
 
 @bot.group()
@@ -203,11 +216,23 @@ async def setup(ctx):
         append(table='servers', column=['guild_id'], data=[ctx.guild.id])
         append(table='textdata', column=['guild_id'], data=[ctx.guild.id])
 @setup.command(
+    aliases = ['wlcm'],
+    help = 'To create a custom welcome message.'
+)
+async def welcome(ctx: commands.Context, *, msg: str):
+    if dumptext(ctx.guild.id, 'welcome', msg.split('\n')): await ctx.send('**Successfully updated welcome message.**')
+    else: await ctx.send('**Failed to update welcome message.**')
+@welcome.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.invoke(bot.get_command('help setup welcome'))
+
+@setup.command(
     aliases = ['ch'],
-    help = "TO initialize the channels for a given channel's tokens."
+    help = "To initialize the channels for a given channel's tokens."
 )
 @commands.has_permissions(administrator=True)
-async def channel(ctx, *, arg):
+async def channel(ctx: commands.Context, *, arg):
     tknsl = arg.split()
     it = list()
     if not len(tknsl)%2 and tknsl:
@@ -339,12 +364,11 @@ async def on_member_join(new : discord.Member):
 
 ''' COC EVENTS '''
 
-@tasks.loop(count = None)
+@tasks.loop(seconds = 10)
 async def cocev():
     @client.event
     @coc.ClanEvents.member_role(tags=[tag for tag in saved_clan_tag()  if not tag == None])
     async def on_role_updates(old_player, new_player):
-        print(1)
         if saved_guild([new_player.clan.tag]):
             timap = links(saved_guild([new_player.clan.tag]).id)
         else: return
@@ -369,7 +393,6 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_join(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def on_member_join(player, clan):
-        print(2)
         if saved_guild([clan.tag]):
             timap = links(saved_guild([clan.tag]).id)
         else: return
@@ -400,7 +423,6 @@ async def cocev():
     @client.event
     @coc.ClanEvents.member_name(tags=[tag for tag in saved_clan_tag() if not tag == None])
     async def on_member_name_change(old_player, new_player):
-        print(3)
         if saved_guild([new_player.clan.tag]):
             ti = links(saved_guild([new_player.clan.tag]).id)
         else: return
@@ -755,7 +777,6 @@ async def code(ctx: commands.Context, *, asydef: str):
                     pass
                 elif asydef.lower().split()[0] == 'sc' and lines[i] == "''' SetUp Commands '''\n":
                     pass
-            print(''.join(fl))
             await ctx.send('```py\n'+''.join(fl)+'\n```')
 
 if __name__ == '__main__':
