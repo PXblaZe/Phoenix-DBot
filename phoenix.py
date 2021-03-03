@@ -7,7 +7,7 @@ import discord
 import pymysql
 from discord.ext import commands, tasks
 
-condb  = lambda: pymysql.connect(
+condb = lambda: pymysql.connect(
     host = os.environ['DBhost'],
     user = os.environ['DBuser'],
     password = os.environ['DBpass'],
@@ -22,7 +22,7 @@ def get_prefix(bot, message):
         if fd['guild_id'] == str(message.guild.id): return fd['prefix']
     else: return '-'
 
-client  = coc.login(os.environ['gmail'], os.environ['COC-API_pass'], client=coc.EventsClient)
+client  = coc.login(os.environ['gmail'], os.environ['COC_API_pass'], client=coc.EventsClient)
 bot = commands.Bot(command_prefix = get_prefix, help_command = None, intents = discord.Intents.all())
 ch_tokens = {'-fd': 'feed', '-wel': 'welcome', '-wtg': 'waiting', '-hlp': 'help'}
 rl_tokens = {'-l': 'leader', '-c': 'co', '-e': 'elder', '-m': 'member', '-w': 'wrole', '-n': 'new'}
@@ -215,8 +215,9 @@ async def setup(ctx):
     if not ctx.guild in saved_guild():
         append(table='servers', column=['guild_id'], data=[ctx.guild.id])
         append(table='textdata', column=['guild_id'], data=[ctx.guild.id])
+
 @setup.command(
-    aliases = ['wlcm'],
+    aliases = ['wel'],
     help = 'To create a custom welcome message.'
 )
 async def welcome(ctx: commands.Context, *, msg: str):
@@ -226,6 +227,30 @@ async def welcome(ctx: commands.Context, *, msg: str):
 async def foo(ctx, error):
     if isinstance(error, commands.errors.MissingRequiredArgument):
         await ctx.invoke(bot.get_command('help setup welcome'))
+
+@setup.command(
+    aliases = ['sel'],
+    help = "To create a custom select message."
+)
+async def select(ctx: commands.Context, *, msg: str):
+    if dumptext(ctx.guild.id, 'select', msg.split('\n')): await ctx.send("**Successfully updated select message.**")
+    else: await ctx.send('**Failed to update select message.**')
+@select.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.invoke(bot.get_command('help setup select'))
+
+@setup.command(
+    aliases = ['apt'],
+    help = "To create a custom accept message."
+)
+async def accept(ctx: commands.Context, *, msg: str):
+    if dumptext(ctx.guild.id, 'accept', msg.split('\n')): await ctx.send("**Successfully updated accept message.**")
+    else: await ctx.send('**Failed to update accept message.**')
+@accept.error
+async def foo(ctx, error):
+    if isinstance(error, commands.errors.MissingRequiredArgument):
+        await ctx.invoke(bot.get_command('help setup accept'))
 
 @setup.command(
     aliases = ['ch'],
@@ -294,8 +319,8 @@ async def clan(ctx, tag: str):
             update('servers', 'clan_tag', tag, ctx.guild.id)
             if toct: client.remove_clan_updates(*[toct]) #discord.exit.tasks
             client.add_clan_updates(*[tag])
-            await ctx.send('**Done**')
             cocev.restart()
+            await ctx.send('**Done**')
         else:
             await ctx.send('**Clan tag is Invalid or Already used by a Server.**')
     else:
