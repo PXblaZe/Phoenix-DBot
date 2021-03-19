@@ -369,7 +369,7 @@ async def on_command_error(ctx, error):
 @bot.event    
 async def on_message(message: discord.Message):
     cntl = message.content.split()
-    if len(cntl) in [2, 3] and cntl[0][3:-1] == str(bot.user.id) and (cntl[1].lower() in ['prefix', 'set', 'set_prefix', 'setprefix']):
+    if len(cntl) in [2, 3] and cntl[0][2:-1] == str(bot.user.id) and (cntl[1].lower() in ['prefix', 'set', 'set_prefix', 'setprefix']):
         if len(cntl) == 2: cntl.append('')
         if append('prefixes', [message.guild.id, cntl[2]]): 
             await message.channel.send(f'New prefix is: `{(lambda para: None if not para else para)(cntl[2])}`')
