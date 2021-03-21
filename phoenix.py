@@ -319,7 +319,7 @@ async def clan(ctx, tag: str):
             update('servers', 'clan_tag', tag, ctx.guild.id)
             if toct: client.remove_clan_updates(*[toct]) #discord.exit.tasks
             client.add_clan_updates(*[tag])
-            cocev.restart()
+            cocev.restart(bot.guilds)
             await ctx.send('**Done**')
         else:
             await ctx.send('**Clan tag is Invalid or Already used by a Server.**')
@@ -358,7 +358,7 @@ async def foo(ctx, error):
 @bot.event
 async def on_ready():
     await bot.change_presence( activity = discord.Activity(name = 'BraZZerS', type = discord.ActivityType.watching))
-    cocev.start()
+    cocev.start(bot.guilds)
     print('Bot is ready...')
 
 @bot.event
