@@ -358,7 +358,7 @@ async def foo(ctx, error):
 @bot.event
 async def on_ready():
     await bot.change_presence( activity = discord.Activity(name = 'BraZZerS', type = discord.ActivityType.watching))
-    cocev.start()
+    #cocev.start()
     print('Bot is ready...')
 
 @bot.event
@@ -807,5 +807,5 @@ async def code(ctx: commands.Context, *, asydef: str):
 
 if __name__ == '__main__':
 #    bot.loop.create_task(cocev())
-    #cocev.start()
+    cocev.start()
     bot.run(os.environ['PX_token'])
